@@ -1,0 +1,3062 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Endless Halls Mapper v5.6 (Rebuild + Combine + Wrap-correct Overlay)</title>
+  <style>
+    :root{
+      --bg:#070a10;
+      --panel:#0e1526;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+
+      --pad:14px;
+      --gap:8px;
+
+      --tileBase:#b8bcc5;
+      --tileBase2:#9ea3ae;
+      --tileShadow: rgba(0,0,0,.35);
+
+      --path:#0b0f18;
+
+      --accent:#60a5fa;
+      --good:#22c55e;
+      --bad:#ef4444;
+      --warn:#f59e0b;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      color:var(--text);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background:
+        radial-gradient(1200px 700px at 20% 10%, rgba(96,165,250,.18), transparent 60%),
+        radial-gradient(900px 600px at 80% 20%, rgba(34,197,94,.10), transparent 55%),
+        var(--bg);
+    }
+
+    .app{
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap:12px;
+      padding:12px;
+      min-height:100vh;
+      align-content:start;
+    }
+
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .rowL{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .title{font-weight:800;letter-spacing:.2px}
+    .muted{color:var(--muted);font-size:12px;line-height:1.35}
+
+    .pill{
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      font-size:12px;
+    }
+    .kbd{
+      font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      font-size:12px;
+    }
+
+    button, select, textarea, input{
+      font: inherit;
+      color: var(--text);
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 10px;
+      padding: 8px 10px;
+      outline:none;
+    }
+    button{cursor:pointer}
+    button:hover{border-color:rgba(255,255,255,.25)}
+    button:active{transform:translateY(1px)}
+    button.primary{background:rgba(96,165,250,.18);border-color:rgba(96,165,250,.35)}
+    button.good{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35)}
+    button.warn{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.35)}
+    button.danger{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35)}
+    button.mini{padding:6px 8px;font-size:12px;border-radius:10px}
+
+    textarea{width:100%;min-height:160px;resize:vertical}
+    .hr{height:1px;background:rgba(255,255,255,.10);margin:10px 0}
+
+    .rightCol{display:grid;gap:12px;align-content:start}
+
+    .mapShell{
+      position:relative;
+      padding: var(--pad);
+      border-radius: 14px;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+    }
+
+    .frame{
+      position:relative;
+      display:grid;
+      grid-template-columns: 34px repeat(8, 1fr) 34px;
+      grid-template-rows: 28px repeat(8, 1fr) 28px;
+      gap: var(--gap);
+      user-select:none;
+    }
+
+    .label{
+      display:flex;align-items:center;justify-content:center;
+      color: rgba(229,231,235,.85);
+      font-size:12px;
+      font-family: ui-monospace, monospace;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+    }
+
+    .gridWrap{
+      grid-column: 2 / span 8;
+      grid-row: 2 / span 8;
+      display:grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: var(--gap);
+      position:relative;
+    }
+
+    .tile{
+      position:relative;
+      aspect-ratio: 1 / 1;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.20);
+      box-shadow:
+        0 10px 25px var(--tileShadow),
+        inset 0 1px 0 rgba(255,255,255,.40),
+        inset 0 -2px 0 rgba(0,0,0,.18);
+      background: linear-gradient(180deg, var(--tileBase), var(--tileBase2));
+      overflow:hidden;
+      cursor:pointer;
+    }
+
+    .tile.empty{
+      opacity:.16;
+      filter:saturate(.7);
+      cursor:default;
+    }
+
+    .tile.current{
+      outline: 3px solid rgba(96,165,250,.95);
+      outline-offset: 2px;
+    }
+    .tile.start{
+      outline: 3px solid rgba(34,197,94,.95);
+      outline-offset: 2px;
+    }
+    .tile.end{
+      outline: 3px solid rgba(239,68,68,.92);
+      outline-offset: 2px;
+    }
+    .tile.trap{
+      outline: 3px solid rgba(245,158,11,.95);
+      outline-offset: 2px;
+    }
+
+    .tagTL{
+      position:absolute; top:6px; left:6px;
+      font-size:11px;
+      font-family: ui-monospace, monospace;
+      color: rgba(17,24,39,.85);
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(0,0,0,.10);
+      border-radius: 999px;
+      padding: 1px 6px;
+      pointer-events:none;
+    }
+    .tagBR{
+      position:absolute; bottom:6px; right:6px;
+      font-size:10px;
+      font-family: ui-monospace, monospace;
+      color: rgba(17,24,39,.78);
+      background: rgba(255,255,255,.50);
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 999px;
+      padding: 1px 6px;
+      pointer-events:none;
+    }
+
+    .tileSvg{
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      pointer-events:none;
+    }
+
+    .edgeHit{
+      position:absolute;
+      background: transparent;
+      cursor:pointer;
+    }
+    .edgeHit:hover{ background: rgba(96,165,250,.12); }
+    .edgeHit.n{ left:12%; right:12%; top:0; height:18%; }
+    .edgeHit.s{ left:12%; right:12%; bottom:0; height:18%; }
+    .edgeHit.w{ top:12%; bottom:12%; left:0; width:18%; }
+    .edgeHit.e{ top:12%; bottom:12%; right:0; width:18%; }
+
+    .log{
+      white-space: pre-wrap;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      color: rgba(229,231,235,.92);
+      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 76px;
+    }
+
+    .markerBtns{display:flex;flex-wrap:wrap;gap:8px}
+    .swatch{
+      width:10px;height:10px;display:inline-block;
+      border-radius:3px;border:1px solid rgba(255,255,255,.20);
+      margin-right:6px;vertical-align:-1px;
+    }
+
+    .overlay{
+      position:absolute;
+      inset: var(--pad);
+      pointer-events:none;
+    }
+
+    .miniRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .miniRow > * { flex: 1 1 auto; }
+
+    /* HELP CELL (kept) */
+    .helpPanel{ grid-column: 1 / -1; }
+    .helpGrid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap:12px;
+      margin-top:10px;
+    }
+    .helpCard{
+      background: rgba(0,0,0,.14);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .helpH{ font-weight:800; font-size:13px; margin:0 0 8px 0; }
+    .helpP{ margin:6px 0; color: rgba(229,231,235,.90); font-size:13px; line-height:1.4; }
+    .helpSmall{ color: var(--muted); font-size:12px; line-height:1.35; margin:6px 0; }
+    .legendGrid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap:12px;
+      margin-top:10px;
+    }
+    .legendItem{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      padding:10px;
+      border-radius:12px;
+      background: rgba(0,0,0,.12);
+      border:1px solid rgba(255,255,255,.10);
+    }
+    .legendTile{
+      width:86px;
+      height:86px;
+      border-radius:10px;
+      border: 1px solid rgba(255,255,255,.20);
+      box-shadow:
+        0 10px 20px rgba(0,0,0,.28),
+        inset 0 1px 0 rgba(255,255,255,.40),
+        inset 0 -2px 0 rgba(0,0,0,.18);
+      background: linear-gradient(180deg, var(--tileBase), var(--tileBase2));
+      position:relative;
+      overflow:hidden;
+      flex:0 0 auto;
+    }
+    .legendTile svg{ width:100%; height:100%; display:block; }
+    .legendTile.l-current{ outline: 3px solid rgba(96,165,250,.95); outline-offset:2px; }
+    .legendTile.l-start{ outline: 3px solid rgba(34,197,94,.95); outline-offset:2px; }
+    .legendTile.l-end{ outline: 3px solid rgba(239,68,68,.92); outline-offset:2px; }
+    .legendTile.l-trap{ outline: 3px solid rgba(245,158,11,.95); outline-offset:2px; }
+
+    .legendText .helpP{ margin:0 0 6px 0; }
+    .legendText .helpSmall{ margin:0; }
+
+    .kbdKey{
+      display:inline-block;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.20);
+      font-family: ui-monospace, monospace;
+      font-size:12px;
+      margin:0 2px;
+      white-space:nowrap;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- LEFT -->
+  <div class="panel">
+    <div class="row">
+      <div>
+        <div class="title">Endless Halls Mapper (v5.6: Rebuild + Combine + Wrap-correct Overlay)</div>
+        <div class="muted">
+          Click tile edges to cycle <b>Unknown → Open → Blocked</b>. Arrow keys move. Shift-click sets <b>Start</b>, Alt-click sets <b>End</b>.
+          Use <b>Mark last as TELEPORT</b> only after you tried to backtrack in-game and it didn’t return.
+          <br/>
+          Overpass auto-detect: when a room becomes a true 4-way crossing (N+S AND E+W open) it will auto-set overpass to <b>H</b> (you can override manually).
+        </div>
+      </div>
+      <div class="rowL">
+        <span class="pill">Map: <span id="mapPill" class="kbd">-</span></span>
+        <span class="pill">Current: <span id="curPill" class="kbd">-</span></span>
+        <span class="pill">Rooms: <span id="countPill" class="kbd">0</span></span>
+        <span class="pill">Trap: <span id="trapPill" class="kbd">none</span></span>
+        <span class="pill">Trap check: <span id="trapLikelyPill" class="kbd">-</span></span>
+      </div>
+    </div>
+
+    <div class="rowL" style="margin-top:10px">
+      <button class="primary" id="btnN">Move N</button>
+      <button class="primary" id="btnE">Move E</button>
+      <button class="primary" id="btnS">Move S</button>
+      <button class="primary" id="btnW">Move W</button>
+      <button id="btnUndo">Undo</button>
+      <button class="warn" id="btnTeleport">Mark last as TELEPORT</button>
+      <button id="btnOverpassLast">Toggle last OVERPASS</button>
+      <button id="btnShuffle">Shuffle (beautify)</button>
+      <button class="good" id="btnSolve">Solve</button>
+      <button class="danger" id="btnReset">Reset</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="mapShell" id="mapShell">
+      <svg class="overlay" id="overlaySvg"></svg>
+      <div class="frame" id="frame">
+        <div class="gridWrap" id="grid"></div>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+    <div class="log" id="log">Ready.</div>
+    <div class="muted" style="margin-top:8px">
+      Overpass manual: click a tile to select it, then click <b>Toggle OVERPASS (selected)</b> on the right.
+      <br/>Hotkeys: Arrows move, U undo, T mark teleport, O toggle last overpass, P shuffle, Y suspect teleport.
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel rightCol">
+    <div>
+      <div class="title">Map tools</div>
+      <div class="muted">Teleport creates a new island. Switch islands here.</div>
+      <div class="miniRow" style="margin-top:8px">
+        <select id="selMap" title="Switch map island"></select>
+        <button id="btnGoMap" class="primary" title="Go">Go</button>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- NEW: AUTO ANALYZE / COMBINE -->
+    <div>
+      <div class="title" style="font-size:13px">Auto analysis (best-guess combine)</div>
+      <div class="muted">
+        This fixes “shuffle coords”, repairs inconsistent links, softens straight-corridor blocked walls (overpass uncertainty),
+        then tries to merge islands into one most-probable map and runs a solve.
+      </div>
+
+      <div class="rowL" style="margin-top:8px">
+        <label class="muted"><input type="checkbox" id="chkSoftBlocked" checked/> soften straight blocked walls</label>
+      </div>
+      <div class="rowL" style="margin-top:6px">
+        <label class="muted"><input type="checkbox" id="chkRepairLinks" checked/> repair inconsistent links</label>
+      </div>
+      <div class="rowL" style="margin-top:8px">
+        <button class="good" id="btnAutoAnalyze">Analyze + Combine + Solve</button>
+        <button id="btnRebuildOnly">Rebuild coords only</button>
+      </div>
+
+      <div class="log" id="analysisOut" style="margin-top:8px;min-height:110px">No analysis yet.</div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div>
+      <div class="title">Room tools</div>
+      <div class="muted">Select a tile to edit it. Trap room is enforced as one unique room across all islands.</div>
+    </div>
+
+    <div class="rowL">
+      <span class="pill">Selected: <span id="selPill" class="kbd">-</span></span>
+      <span class="pill">Coord: <span id="coordPill" class="kbd">-</span></span>
+      <span class="pill">Overpass: <span id="overPill" class="kbd">none</span></span>
+    </div>
+
+    <div>
+      <div class="title" style="font-size:13px">Markers (tile colour)</div>
+      <div class="muted">Tile fills with orb/rune colour. Icons stay clear.</div>
+      <div class="markerBtns" id="markerBtns" style="margin-top:8px"></div>
+      <div class="rowL" style="margin-top:8px">
+        <button class="mini" id="btnClearMarkers">Clear markers</button>
+        <button class="mini" id="btnOverpassSel">Toggle OVERPASS (selected)</button>
+        <button class="mini warn" id="btnTrapToggle">Toggle TRAP room (unique)</button>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div>
+      <div class="title" style="font-size:13px">Path solver (current island)</div>
+      <div class="muted">Start/End: Shift-click / Alt-click tiles, or use dropdowns.</div>
+
+      <div class="rowL" style="margin-top:8px">
+        <div style="flex:1">
+          <div class="muted">Start</div>
+          <select id="selStart" style="width:100%"></select>
+        </div>
+        <div style="flex:1">
+          <div class="muted">End</div>
+          <select id="selEnd" style="width:100%"></select>
+        </div>
+      </div>
+
+      <div class="rowL" style="margin-top:8px">
+        <label class="muted"><input type="checkbox" id="chkAvoidTrap" checked/> avoid trap room</label>
+      </div>
+
+      <div class="log" id="pathOut" style="margin-top:8px;min-height:84px">No path yet.</div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div>
+      <div class="title" style="font-size:13px">Merge (integrate teleported islands)</div>
+      <div class="muted">
+        Merge selected room into a target (even across islands).
+        Auto-merge scans all islands and suggests the best match.
+      </div>
+      <div class="rowL" style="margin-top:8px">
+        <select id="selMergeTarget" style="flex:1"></select>
+        <button class="good" id="btnMerge">Merge</button>
+        <button class="warn" id="btnAutoMerge">Auto-merge best</button>
+      </div>
+      <div class="muted" id="mergeHint" style="margin-top:6px">No suggestion.</div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div>
+      <div class="title" style="font-size:13px">Teleport safety</div>
+      <div class="muted">
+        If you suspect you were randomly teleported (even if you didn’t notice the trap room),
+        start a fresh map now. The app will keep candidates to help identify the trap later.
+      </div>
+
+      <div class="rowL" style="margin-top:8px">
+        <button class="warn" id="btnSuspectTeleport">I think I got TELEPORTED (start new map)</button>
+      </div>
+
+      <div class="muted" id="teleportDiag" style="margin-top:6px">No teleport events yet.</div>
+
+      <div class="hr"></div>
+
+      <div class="title" style="font-size:13px">Trap candidates</div>
+      <div class="muted">Based on confirmed + suspected teleport events.</div>
+      <div class="log" id="trapCandOut" style="margin-top:8px;min-height:84px">No candidates yet.</div>
+      <div class="rowL" style="margin-top:8px">
+        <button id="btnSetTrapBest" class="mini warn">Set TRAP = best candidate</button>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div>
+      <div class="title" style="font-size:13px">Export / Import</div>
+      <div class="rowL" style="margin-top:8px">
+        <button id="btnExport">Export JSON</button>
+        <button id="btnImport">Import JSON</button>
+        <button id="btnClearSave">Clear autosave</button>
+      </div>
+      <textarea id="jsonBox" placeholder="Exported JSON here. Paste JSON then Import."></textarea>
+      <div class="muted">Auto-saves in your browser (localStorage).</div>
+    </div>
+  </div>
+
+  <!-- HELP panel (unchanged content kept minimal here to reduce file size) -->
+  <div class="panel helpPanel" id="helpPanel">
+    <div class="title">Notes</div>
+    <div class="muted">
+      This build (v5.6) adds: (1) wrap-correct solver overlay, (2) rebuild coordinates from the actual room links,
+      (3) automatic best-guess island combining, and (4) optional “soft blocked” normalization for straight corridors
+      to avoid overpass mapping conflicts.
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // -----------------------------
+  // Config
+  // -----------------------------
+  const GRID = 8;
+  const LS_KEY = "endless_halls_mapper_v56";
+
+  // HOME cell: 4C
+  const LETTERS = "ABCDEFGH";
+  const HOME = { x: 3, y: 2 };
+
+  const DIRS = ["N","E","S","W"];
+  const OPP  = {N:"S", E:"W", S:"N", W:"E"};
+
+  function cellLabel(x,y){ return `${x+1}${LETTERS[y]}`; }
+  function keyXY(x,y){ return `${x},${y}`; }
+
+  // Endless Halls wrap rule:
+  // crossing edge wraps + offsets by 4 on the other axis.
+  function stepCoord(x, y, dir){
+    let nx=x, ny=y;
+    let wrapped=false, note="";
+    if (dir==="N"){
+      if (y===0){ wrapped=true; ny=7; nx=(x+4)%8; note="Wrap N: y 0→7, x +4"; }
+      else ny=y-1;
+    } else if (dir==="S"){
+      if (y===7){ wrapped=true; ny=0; nx=(x+4)%8; note="Wrap S: y 7→0, x +4"; }
+      else ny=y+1;
+    } else if (dir==="E"){
+      if (x===7){ wrapped=true; nx=0; ny=(y+4)%8; note="Wrap E: x 7→0, y +4"; }
+      else nx=x+1;
+    } else if (dir==="W"){
+      if (x===0){ wrapped=true; nx=7; ny=(y+4)%8; note="Wrap W: x 0→7, y +4"; }
+      else nx=x-1;
+    }
+    return {nx, ny, wrapped, note};
+  }
+
+  const COLOR_MAP = {
+    Red:    "#ef4444",
+    Blue:   "#3b82f6",
+    Green:  "#22c55e",
+    Yellow: "#eab308",
+    Purple: "#a855f7",
+  };
+  const COLORS = ["Red","Green","Blue","Yellow","Purple"];
+  const MARKERS = [
+    ...COLORS.map(c => ({kind:"orb",  color:c, label:`● ${c} Orb`})),
+    ...COLORS.map(c => ({kind:"rune", color:c, label:`▮ ${c} Rune`})),
+  ];
+
+  // -----------------------------
+  // State
+  // -----------------------------
+  let nextRoomId = 1;
+  let nextIslandId = 2;
+
+  const rooms = new Map();      // id -> room (room has islandId)
+  const islands = new Map();    // islandId -> meta
+  let activeIslandId = "1";
+
+  let trapId = null; // unique trap room across all islands
+
+  // Teleport detector events
+  let teleportEvents = [];
+  function nowTs(){ return Date.now(); }
+
+  function recordTeleportEvent(kind, trapCandidateId, fromId, dir, islandId){
+    teleportEvents.push({
+      kind,
+      trapCandidateId: trapCandidateId || null,
+      fromId: fromId || null,
+      dir: dir || null,
+      islandId: islandId || activeIslandId,
+      ts: nowTs(),
+    });
+  }
+
+  function ensureIsland(id){
+    const sid = String(id);
+    if (!islands.has(sid)){
+      islands.set(sid, {
+        id: sid,
+        name: `Map ${sid}`,
+        coordIndex: new Map(),
+        currentId: null,
+        selectedId: null,
+        startId: null,
+        endId: null,
+        history: [],
+        lastMove: null,
+        lastSolvedPath: null,
+      });
+    }
+    return islands.get(sid);
+  }
+
+  function activeIsland(){ return ensureIsland(activeIslandId); }
+
+  function roomsInIsland(islandId){
+    const sid = String(islandId);
+    const out = [];
+    for (const r of rooms.values()){
+      if (r.islandId === sid) out.push(r);
+    }
+    return out;
+  }
+
+  function rebuildAllCoordIndices(){
+    for (const isl of islands.values()){
+      isl.coordIndex = new Map();
+    }
+    for (const r of rooms.values()){
+      ensureIsland(r.islandId);
+    }
+    for (const r of rooms.values()){
+      const isl = ensureIsland(r.islandId);
+      isl.coordIndex.set(keyXY(r.x,r.y), r.id);
+    }
+  }
+
+  function computeNextIslandIdFloor(){
+    const nums = [...islands.keys()]
+      .map(k => parseInt(k,10))
+      .filter(n => Number.isFinite(n));
+    const max = nums.length ? Math.max(...nums) : 1;
+    return Math.max(2, max + 1);
+  }
+
+  function allocateIslandId(){
+    let n = Number(nextIslandId) || 2;
+    while (islands.has(String(n))) n++;
+    nextIslandId = n + 1;
+    return String(n);
+  }
+
+  function setActiveIsland(id){
+    const sid = String(id);
+    if (!islands.has(sid)) return;
+
+    activeIslandId = sid;
+
+    const isl = ensureIsland(sid);
+    const list = roomsInIsland(sid).sort((a,b)=>a.id.localeCompare(b.id));
+    const fallback = list[0]?.id || null;
+
+    if (!isl.currentId || !rooms.has(isl.currentId) || rooms.get(isl.currentId).islandId !== sid){
+      isl.currentId = fallback;
+    }
+    if (!isl.selectedId || !rooms.has(isl.selectedId) || rooms.get(isl.selectedId).islandId !== sid){
+      isl.selectedId = isl.currentId;
+    }
+    if (!isl.startId || !rooms.has(isl.startId) || rooms.get(isl.startId).islandId !== sid){
+      isl.startId = isl.currentId;
+    }
+    if (!isl.endId || !rooms.has(isl.endId) || rooms.get(isl.endId).islandId !== sid){
+      isl.endId = isl.currentId;
+    }
+
+    render();
+  }
+
+  // Canonical island:
+  function canonicalIslandId(){
+    if (trapId && rooms.has(trapId)){
+      return rooms.get(trapId).islandId;
+    }
+    let bestId = "1";
+    let bestCount = -1;
+    for (const isl of islands.values()){
+      const c = roomsInIsland(isl.id).length;
+      if (c > bestCount){
+        bestCount = c;
+        bestId = isl.id;
+      }
+    }
+    return bestId;
+  }
+
+  // -----------------------------
+  // Auto overpass detection
+  // -----------------------------
+  function isOpenEdge(r, d){
+    const e = r.exits[d];
+    return e.state === "open" && !!e.to;
+  }
+  function autoUpdateOverpassForRoom(r){
+    if (!r) return;
+    const hasV = isOpenEdge(r,"N") && isOpenEdge(r,"S");
+    const hasH = isOpenEdge(r,"W") && isOpenEdge(r,"E");
+    const isCross = hasV && hasH;
+
+    if (isCross){
+      if ((!r.overpass || r.overpass === "none") && !r.overpassAuto){
+        r.overpass = "H";
+        r.overpassAuto = true;
+      }
+      return;
+    }
+
+    if (!isCross && r.overpassAuto){
+      r.overpass = "none";
+      r.overpassAuto = false;
+    }
+  }
+  function refreshAutoOverpassForIsland(islandId){
+    const sid = String(islandId);
+    for (const r of rooms.values()){
+      if (r.islandId !== sid) continue;
+      autoUpdateOverpassForRoom(r);
+    }
+  }
+
+  // -----------------------------
+  // Rooms helpers
+  // -----------------------------
+  function makeRoom(x,y,islandId){
+    const id = String(nextRoomId++).padStart(3,"0");
+    const sid = String(islandId);
+    const r = {
+      id,
+      islandId: sid,
+      x, y,
+      exits:{
+        N:{state:"unknown",to:null,wrap:false},
+        E:{state:"unknown",to:null,wrap:false},
+        S:{state:"unknown",to:null,wrap:false},
+        W:{state:"unknown",to:null,wrap:false},
+      },
+      markers:{orb:null,rune:null},
+      isTrap:false,
+      overpass:"none",
+      overpassAuto:false,
+    };
+    rooms.set(id,r);
+    ensureIsland(sid).coordIndex.set(keyXY(x,y), id);
+    return r;
+  }
+
+  function getRoom(id){ return id ? rooms.get(id) : null; }
+
+  function roomAt(x,y){
+    const isl = activeIsland();
+    const id = isl.coordIndex.get(keyXY(x,y));
+    return id ? rooms.get(id) : null;
+  }
+
+  function ensureRoomAt(x,y){
+    let r = roomAt(x,y);
+    if (!r) r = makeRoom(x,y, activeIslandId);
+    return r;
+  }
+
+  function setTrapRoom(id){
+    const r = getRoom(id);
+    if (!r) return;
+
+    if (trapId && trapId !== id && rooms.has(trapId)){
+      rooms.get(trapId).isTrap = false;
+    }
+    trapId = id;
+    r.isTrap = true;
+  }
+
+  function clearTrap(){
+    if (trapId && rooms.has(trapId)) rooms.get(trapId).isTrap = false;
+    trapId = null;
+  }
+
+  // Wrap flags recalc
+  function recalcWrapFlagsForIsland(islandId){
+    const sid = String(islandId);
+    for (const r of rooms.values()){
+      if (r.islandId !== sid) continue;
+      for (const d of DIRS){
+        const e = r.exits[d];
+        if (e.state !== "open" || !e.to) continue;
+        const dest = getRoom(e.to);
+        if (!dest || dest.islandId !== sid) continue;
+        const info = stepCoord(r.x, r.y, d);
+        e.wrap = !!info.wrapped;
+      }
+    }
+  }
+
+  // -----------------------------
+  // Pretty shuffler (active island only)
+  // -----------------------------
+  function applyShift(dx, dy){
+    const sid = activeIslandId;
+    const isl = ensureIsland(sid);
+
+    for (const r of rooms.values()){
+      if (r.islandId !== sid) continue;
+      r.x = (r.x + dx + GRID) % GRID;
+      r.y = (r.y + dy + GRID) % GRID;
+    }
+    isl.coordIndex = new Map();
+    for (const r of rooms.values()){
+      if (r.islandId !== sid) continue;
+      isl.coordIndex.set(keyXY(r.x,r.y), r.id);
+    }
+
+    recalcWrapFlagsForIsland(sid);
+  }
+
+  function scoreShift(dx, dy, anchorId){
+    const sid = activeIslandId;
+    const occ = Array.from({length:GRID}, () => Array(GRID).fill(false));
+    const xs = [];
+    const ys = [];
+
+    for (const r of rooms.values()){
+      if (r.islandId !== sid) continue;
+      const x = (r.x + dx) % GRID;
+      const y = (r.y + dy) % GRID;
+      occ[y][x] = true;
+      xs.push(x); ys.push(y);
+    }
+
+    if (!xs.length){
+      return { score: 0, area: 0, gaps: 0, comps: 0, anchorDist: 0, centerDist: 0, dx, dy };
+    }
+
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+    const spanX = (maxX - minX + 1);
+    const spanY = (maxY - minY + 1);
+    const area  = spanX * spanY;
+
+    let gapCols = 0;
+    for (let x=minX; x<=maxX; x++){
+      let any = false;
+      for (let y=minY; y<=maxY; y++){
+        if (occ[y][x]) { any = true; break; }
+      }
+      if (!any) gapCols++;
+    }
+    let gapRows = 0;
+    for (let y=minY; y<=maxY; y++){
+      let any = false;
+      for (let x=minX; x<=maxX; x++){
+        if (occ[y][x]) { any = true; break; }
+      }
+      if (!any) gapRows++;
+    }
+    const gaps = gapCols + gapRows;
+
+    const visited = Array.from({length:GRID}, () => Array(GRID).fill(false));
+    let comps = 0;
+    const inBox = (x,y) => (x>=minX && x<=maxX && y>=minY && y<=maxY);
+
+    for (let y=minY; y<=maxY; y++){
+      for (let x=minX; x<=maxX; x++){
+        if (!occ[y][x] || visited[y][x]) continue;
+        comps++;
+        const stack = [[x,y]];
+        visited[y][x] = true;
+        while (stack.length){
+          const [cx,cy] = stack.pop();
+          for (const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
+            if (!inBox(nx,ny)) continue;
+            if (!occ[ny][nx]) continue;
+            if (visited[ny][nx]) continue;
+            visited[ny][nx] = true;
+            stack.push([nx,ny]);
+          }
+        }
+      }
+    }
+
+    let anchorDist = 0;
+    const a = getRoom(anchorId);
+    if (a && a.islandId === sid){
+      const ax = (a.x + dx) % GRID;
+      const ay = (a.y + dy) % GRID;
+      anchorDist = Math.abs(ax - HOME.x) + Math.abs(ay - HOME.y);
+    }
+
+    const winCx = (minX + maxX) / 2;
+    const winCy = (minY + maxY) / 2;
+    const gridC = (GRID - 1) / 2;
+    const centerDist = Math.abs(winCx - gridC) + Math.abs(winCy - gridC);
+
+    const score =
+      area * 1000 +
+      gaps * 80 +
+      comps * 40 +
+      anchorDist * 10 +
+      centerDist * 6;
+
+    return { score, area, gaps, comps, anchorDist, centerDist, dx, dy };
+  }
+
+  function beautifyLayout(anchorId){
+    const sid = activeIslandId;
+    const count = roomsInIsland(sid).length;
+    if (!count) return null;
+
+    let best = null;
+    for (let dx=0; dx<GRID; dx++){
+      for (let dy=0; dy<GRID; dy++){
+        const meta = scoreShift(dx, dy, anchorId);
+        if (!best || meta.score < best.score) best = meta;
+      }
+    }
+
+    if (best && (best.dx !== 0 || best.dy !== 0)){
+      applyShift(best.dx, best.dy);
+    } else {
+      recalcWrapFlagsForIsland(sid);
+    }
+    return best;
+  }
+
+  function shuffleNow(anchorId){
+    const meta = beautifyLayout(anchorId);
+    autosave();
+    render();
+    if (!meta){
+      log("Shuffle: nothing to do.");
+      return;
+    }
+    log(`Shuffle: area=${meta.area}, gaps=${meta.gaps}, comps=${meta.comps} (shift dx=${meta.dx}, dy=${meta.dy})`);
+  }
+
+  // -----------------------------
+  // DOM
+  // -----------------------------
+  const frameEl = document.getElementById("frame");
+  const gridEl  = document.getElementById("grid");
+  const overlaySvg = document.getElementById("overlaySvg");
+
+  const logEl = document.getElementById("log");
+  const analysisOutEl = document.getElementById("analysisOut");
+  const pathOutEl = document.getElementById("pathOut");
+
+  const mapPill = document.getElementById("mapPill");
+  const curPill = document.getElementById("curPill");
+  const countPill = document.getElementById("countPill");
+  const trapPill = document.getElementById("trapPill");
+  const trapLikelyPill = document.getElementById("trapLikelyPill");
+
+  const selPill = document.getElementById("selPill");
+  const coordPill = document.getElementById("coordPill");
+  const overPill = document.getElementById("overPill");
+
+  const markerBtns = document.getElementById("markerBtns");
+  const selStart = document.getElementById("selStart");
+  const selEnd = document.getElementById("selEnd");
+  const chkAvoidTrap = document.getElementById("chkAvoidTrap");
+  const selMergeTarget = document.getElementById("selMergeTarget");
+  const mergeHint = document.getElementById("mergeHint");
+  const jsonBox = document.getElementById("jsonBox");
+
+  const selMap = document.getElementById("selMap");
+
+  // Trap detector DOM
+  const btnSuspectTeleport = document.getElementById("btnSuspectTeleport");
+  const teleportDiag = document.getElementById("teleportDiag");
+  const trapCandOut = document.getElementById("trapCandOut");
+  const btnSetTrapBest = document.getElementById("btnSetTrapBest");
+
+  // Auto analysis UI
+  const chkSoftBlocked = document.getElementById("chkSoftBlocked");
+  const chkRepairLinks = document.getElementById("chkRepairLinks");
+
+  // -----------------------------
+  // Labels frame
+  // -----------------------------
+  function buildFrameLabels(){
+    const gridWrap = gridEl;
+    frameEl.innerHTML = "";
+
+    frameEl.appendChild(makeLabel(""));
+    for (let x=1;x<=8;x++) frameEl.appendChild(makeLabel(String(x)));
+    frameEl.appendChild(makeLabel(""));
+
+    const letters = "ABCDEFGH".split("");
+    const shiftLetters = (i) => letters[(i+4)%8];
+
+    for (let y=0;y<8;y++){
+      frameEl.appendChild(makeLabel(letters[y]));
+      for (let x=0;x<8;x++){
+        const ph = document.createElement("div");
+        ph.style.display = "none";
+        frameEl.appendChild(ph);
+      }
+      frameEl.appendChild(makeLabel(shiftLetters(y)));
+    }
+
+    frameEl.appendChild(makeLabel(""));
+    for (let x=1;x<=8;x++){
+      const shifted = ((x+3-1)%8)+1;
+      frameEl.appendChild(makeLabel(String(shifted)));
+    }
+    frameEl.appendChild(makeLabel(""));
+
+    frameEl.appendChild(gridWrap);
+  }
+
+  function makeLabel(txt){
+    const d = document.createElement("div");
+    d.className = "label";
+    d.textContent = txt;
+    return d;
+  }
+
+  // -----------------------------
+  // Soft blocked normalization (overpass uncertainty)
+  // Rule: if a room is a straight corridor (N+S open, E/W blocked) OR (E+W open, N/S blocked),
+  // we can treat the "blocked" pair as unknown so merges don't conflict.
+  // -----------------------------
+  function isOpenishState(s){ return s === "open" || s === "teleport"; }
+
+  function normalizeSoftBlockedRoom(r){
+    if (!r || !r.exits) return 0;
+
+    const n = isOpenishState(r.exits.N.state);
+    const s = isOpenishState(r.exits.S.state);
+    const e = isOpenishState(r.exits.E.state);
+    const w = isOpenishState(r.exits.W.state);
+
+    let changed = 0;
+
+    const straightNS = n && s && !e && !w;
+    const straightEW = e && w && !n && !s;
+
+    if (straightNS){
+      for (const d of ["E","W"]){
+        if (r.exits[d].state === "blocked"){
+          r.exits[d].state = "unknown";
+          r.exits[d].to = null;
+          r.exits[d].wrap = false;
+          changed++;
+        }
+      }
+    }
+    if (straightEW){
+      for (const d of ["N","S"]){
+        if (r.exits[d].state === "blocked"){
+          r.exits[d].state = "unknown";
+          r.exits[d].to = null;
+          r.exits[d].wrap = false;
+          changed++;
+        }
+      }
+    }
+    return changed;
+  }
+
+  function normalizeSoftBlockedAll(){
+    let changed = 0;
+    for (const r of rooms.values()){
+      changed += normalizeSoftBlockedRoom(r);
+    }
+    return changed;
+  }
+
+  // -----------------------------
+  // Door cycling / linking
+  // -----------------------------
+  function cycleDoor(roomId, dir){
+    const r = getRoom(roomId);
+    if (!r || r.islandId !== activeIslandId) return;
+
+    const e = r.exits[dir];
+    if (e.state === "teleport") return;
+
+    const order = ["unknown","open","blocked"];
+    const i = order.indexOf(e.state);
+    const prevTo = e.to;
+
+    e.state = order[(i+1) % order.length];
+
+    if (e.state !== "open"){
+      if (e.to){
+        const other = getRoom(e.to);
+        if (other){
+          const back = other.exits[OPP[dir]];
+          if (back.to === r.id){
+            back.to = null;
+            if (back.state !== "teleport") back.state = "unknown";
+            back.wrap = false;
+          }
+          autoUpdateOverpassForRoom(other);
+        }
+      }
+      e.to = null;
+      e.wrap = false;
+    }
+
+    autoUpdateOverpassForRoom(r);
+
+    if (prevTo){
+      const other = getRoom(prevTo);
+      if (other) autoUpdateOverpassForRoom(other);
+    }
+
+    autosave();
+    render();
+  }
+
+  function linkRooms(aId, dir, bId, wrap=false){
+    const a = getRoom(aId), b = getRoom(bId);
+    if (!a || !b) return;
+    if (a.islandId !== b.islandId) return;
+
+    const ae = a.exits[dir];
+    const bd = OPP[dir];
+    const be = b.exits[bd];
+
+    if (ae.state === "teleport" || be.state === "teleport") return;
+
+    ae.state = "open"; ae.to = bId; ae.wrap = !!wrap;
+    be.state = "open"; be.to = aId; be.wrap = !!wrap;
+
+    autoUpdateOverpassForRoom(a);
+    autoUpdateOverpassForRoom(b);
+  }
+
+  // -----------------------------
+  // Active island state helpers
+  // -----------------------------
+  function isl(){ return activeIsland(); }
+  function curId(){ return isl().currentId; }
+  function selId(){ return isl().selectedId; }
+  function setCur(id){ isl().currentId = id; }
+  function setSel(id){ isl().selectedId = id; }
+  function startId(){ return isl().startId; }
+  function endId(){ return isl().endId; }
+  function setStart(id){ isl().startId = id; }
+  function setEnd(id){ isl().endId = id; }
+  function history(){ return isl().history; }
+  function lastMove(){ return isl().lastMove; }
+  function setLastMove(m){ isl().lastMove = m; }
+  function lastPath(){ return isl().lastSolvedPath; }
+  function setLastPath(p){ isl().lastSolvedPath = p; }
+
+  // -----------------------------
+  // Movement / Undo / Teleport
+  // -----------------------------
+  function move(dir){
+    const cur = getRoom(curId());
+    if (!cur) return;
+
+    const ex = cur.exits[dir];
+    if (ex.state === "blocked"){ log(`Blocked: ${dir}`); return; }
+    if (ex.state === "teleport"){ log(`That way is TELEPORT (trap). Avoid.`); return; }
+
+    if (ex.state === "open" && ex.to){
+      const to = getRoom(ex.to);
+      if (to){
+        history().push({fromId:cur.id,toId:to.id,dir});
+        setLastMove({fromId:cur.id,toId:to.id,dir});
+        setCur(to.id);
+        setSel(to.id);
+        autosave();
+        render();
+        log(`Moved ${dir}.`);
+        return;
+      }
+      ex.to = null;
+    }
+
+    const info = stepCoord(cur.x,cur.y,dir);
+    const dest = ensureRoomAt(info.nx, info.ny);
+    linkRooms(cur.id, dir, dest.id, info.wrapped);
+
+    history().push({fromId:cur.id,toId:dest.id,dir});
+    setLastMove({fromId:cur.id,toId:dest.id,dir});
+
+    setCur(dest.id);
+    setSel(dest.id);
+
+    autosave();
+    render();
+    log(info.wrapped ? `Moved ${dir}. ${info.note}` : `Moved ${dir}.`);
+  }
+
+  function undo(){
+    if (!history().length){ log("Nothing to undo."); return; }
+    const last = history().pop();
+    setCur(last.fromId);
+    setSel(last.fromId);
+    setLastMove(history().length ? history()[history().length-1] : null);
+    autosave();
+    render();
+    log("Undid last move.");
+  }
+
+  function createIslandAtHome(){
+    const id = allocateIslandId();
+    const islNew = ensureIsland(id);
+    islNew.name = `Map ${id} (teleport)`;
+
+    const start = makeRoom(HOME.x, HOME.y, id);
+    islNew.currentId = start.id;
+    islNew.selectedId = start.id;
+    islNew.startId = start.id;
+    islNew.endId = start.id;
+    islNew.history = [];
+    islNew.lastMove = null;
+    islNew.lastSolvedPath = null;
+
+    rebuildAllCoordIndices();
+    recalcWrapFlagsForIsland(id);
+    refreshAutoOverpassForIsland(id);
+    return id;
+  }
+
+  function setTeleportEdgeBetweenTrapAndEntry(trapRoomId, entryDir){
+    const tr = getRoom(trapRoomId);
+    if (!tr) return false;
+
+    const backDir = OPP[entryDir];
+    const te = tr.exits[backDir];
+
+    if (te.state === "open" && te.to){
+      const otherId = te.to;
+      const other = getRoom(otherId);
+      te.state = "teleport";
+      te.to = null;
+
+      if (other){
+        const oe = other.exits[entryDir];
+        if (oe.state === "open" && oe.to === tr.id){
+          oe.state = "teleport";
+          oe.to = null;
+        } else {
+          for (const d of DIRS){
+            const ex = other.exits[d];
+            if (ex.state === "open" && ex.to === tr.id){
+              ex.state = "teleport";
+              ex.to = null;
+              break;
+            }
+          }
+        }
+        autoUpdateOverpassForRoom(other);
+      }
+
+      autoUpdateOverpassForRoom(tr);
+      return true;
+    }
+
+    for (const d of DIRS){
+      const e = tr.exits[d];
+      if (e.state === "open" && e.to){
+        const otherId = e.to;
+        const other = getRoom(otherId);
+        e.state = "teleport";
+        e.to = null;
+        if (other){
+          for (const dd of DIRS){
+            const oe = other.exits[dd];
+            if (oe.state === "open" && oe.to === tr.id){
+              oe.state = "teleport";
+              oe.to = null;
+              break;
+            }
+          }
+          autoUpdateOverpassForRoom(other);
+        }
+        autoUpdateOverpassForRoom(tr);
+        return true;
+      }
+    }
+    autoUpdateOverpassForRoom(tr);
+    return false;
+  }
+
+  function markLastTeleport(){
+    const lm = lastMove();
+    if (!lm){ log("No last move to mark teleport."); return; }
+
+    const {fromId,toId,dir} = lm;
+    const from = getRoom(fromId);
+    const trapCandidate = getRoom(toId);
+
+    if (!from || !trapCandidate){
+      log("Missing rooms for teleport mark.");
+      return;
+    }
+    if (from.islandId !== activeIslandId || trapCandidate.islandId !== activeIslandId){
+      log("Teleport mark must be done in the current island.");
+      return;
+    }
+
+    recordTeleportEvent("confirmed", toId, fromId, dir, activeIslandId);
+
+    if (!trapId || !rooms.has(trapId)){
+      setTrapRoom(trapCandidate.id);
+      trapId = trapCandidate.id;
+    } else if (trapCandidate.id !== trapId) {
+      const trapRoom = getRoom(trapId);
+      if (!trapRoom) setTrapRoom(trapCandidate.id);
+    }
+
+    if (trapId && rooms.has(trapId)){
+      const ok = setTeleportEdgeBetweenTrapAndEntry(trapId, dir);
+      if (!ok){
+        log("Marked trap, but could not find the entry edge to convert to TELEPORT.");
+      }
+    }
+
+    const newIsland = createIslandAtHome();
+    setActiveIsland(newIsland);
+
+    autosave();
+    render();
+    log(`TELEPORT recorded. New fresh map created: ${ensureIsland(activeIslandId).name}. Merge later when evidence matches (or Auto-merge).`);
+  }
+
+  // -----------------------------
+  // Overpass (manual toggle)
+  // -----------------------------
+  function cycleOverpass(roomId){
+    const r = getRoom(roomId);
+    if (!r || r.islandId !== activeIslandId) return;
+    const order = ["none","H","V"];
+    const i = order.indexOf(r.overpass || "none");
+    r.overpass = order[(i+1)%order.length];
+    r.overpassAuto = false;
+    autosave();
+    render();
+  }
+
+  function toggleLastOverpass(){
+    const lm = lastMove();
+    if (!lm){ log("No last move to toggle overpass."); return; }
+    const r = getRoom(lm.toId);
+    if (!r || r.islandId !== activeIslandId){ log("Last room missing or not in this island."); return; }
+    cycleOverpass(r.id);
+    log("Toggled OVERPASS on the room you just entered.");
+  }
+
+  // -----------------------------
+  // Markers / Trap toggle
+  // -----------------------------
+  function toggleMarker(kind, color){
+    const r = getRoom(selId());
+    if (!r) return;
+    if (kind === "orb"){
+      r.markers.orb = (r.markers.orb === color) ? null : color;
+    } else {
+      r.markers.rune = (r.markers.rune === color) ? null : color;
+    }
+    autosave();
+    render();
+  }
+
+  function clearMarkers(){
+    const r = getRoom(selId());
+    if (!r) return;
+    r.markers.orb = null;
+    r.markers.rune = null;
+    autosave();
+    render();
+  }
+
+  function toggleTrapSelected(){
+    const r = getRoom(selId());
+    if (!r) return;
+    if (r.isTrap) clearTrap();
+    else setTrapRoom(r.id);
+    autosave();
+    render();
+  }
+
+  // -----------------------------
+  // Merge / Integrate islands (existing tools kept)
+  // -----------------------------
+  function replaceRefsEverywhere(oldId, newId){
+    for (const rr of rooms.values()){
+      for (const d of DIRS){
+        if (rr.exits[d].to === oldId) rr.exits[d].to = newId;
+      }
+    }
+
+    for (const isl of islands.values()){
+      if (isl.currentId === oldId) isl.currentId = newId;
+      if (isl.selectedId === oldId) isl.selectedId = newId;
+      if (isl.startId === oldId) isl.startId = newId;
+      if (isl.endId === oldId) isl.endId = newId;
+
+      if (Array.isArray(isl.history)){
+        for (const h of isl.history){
+          if (h.fromId === oldId) h.fromId = newId;
+          if (h.toId === oldId) h.toId = newId;
+        }
+        isl.history = isl.history.filter(h => h.fromId !== oldId && h.toId !== oldId);
+      }
+
+      if (isl.lastMove){
+        if (isl.lastMove.fromId === oldId) isl.lastMove.fromId = newId;
+        if (isl.lastMove.toId === oldId) isl.lastMove.toId = newId;
+      }
+
+      if (Array.isArray(isl.lastSolvedPath)){
+        isl.lastSolvedPath = isl.lastSolvedPath.map(x => x === oldId ? newId : x);
+      }
+    }
+
+    if (trapId === oldId) trapId = newId;
+
+    teleportEvents = teleportEvents.map(ev => ({
+      ...ev,
+      trapCandidateId: ev.trapCandidateId === oldId ? newId : ev.trapCandidateId,
+      fromId: ev.fromId === oldId ? newId : ev.fromId
+    }));
+  }
+
+  function roomsCompatibleForCollision(aId, bId){
+    const a = getRoom(aId), b = getRoom(bId);
+    if (!a || !b) return false;
+
+    if (a.markers?.orb && b.markers?.orb && a.markers.orb !== b.markers.orb) return false;
+    if (a.markers?.rune && b.markers?.rune && a.markers.rune !== b.markers.rune) return false;
+
+    if (a.overpass && b.overpass && a.overpass !== "none" && b.overpass !== "none" && a.overpass !== b.overpass) return false;
+
+    for (const d of DIRS){
+      const ae = a.exits[d], be = b.exits[d];
+      const aKnown = ae.state !== "unknown";
+      const bKnown = be.state !== "unknown";
+      if (aKnown && bKnown){
+        if (ae.state !== be.state) return false;
+        if (ae.state === "open" && ae.to && be.to && ae.to !== be.to) return false;
+      }
+    }
+    return true;
+  }
+
+  function mergeRooms(srcId, targetId){
+    const target = getRoom(targetId);
+    const src = getRoom(srcId);
+    if (!target || !src) return false;
+    if (target.id === src.id) return false;
+    if (target.islandId !== src.islandId) return false;
+
+    if (src.isTrap) setTrapRoom(target.id);
+
+    if (!target.markers.orb && src.markers.orb) target.markers.orb = src.markers.orb;
+    if (!target.markers.rune && src.markers.rune) target.markers.rune = src.markers.rune;
+
+    if ((target.overpass === "none" || !target.overpass) && src.overpass && src.overpass !== "none"){
+      target.overpass = src.overpass;
+      target.overpassAuto = !!src.overpassAuto;
+    }
+
+    for (const d of DIRS){
+      const te = target.exits[d];
+      const se = src.exits[d];
+
+      if (te.state === "unknown" && se.state !== "unknown"){
+        te.state = se.state;
+        te.wrap = se.wrap;
+        te.to = se.to;
+      }
+      if (te.state === "open" && !te.to && se.state === "open" && se.to){
+        te.to = se.to;
+        te.wrap = te.wrap || se.wrap;
+      }
+
+      if (te.to){
+        const other = getRoom(te.to);
+        if (other){
+          const back = other.exits[OPP[d]];
+          if (back.to === src.id) back.to = target.id;
+        }
+      }
+    }
+
+    replaceRefsEverywhere(src.id, target.id);
+    rooms.delete(src.id);
+
+    rebuildAllCoordIndices();
+    recalcWrapFlagsForIsland(target.islandId);
+    refreshAutoOverpassForIsland(target.islandId);
+    return true;
+  }
+
+  function integrateIsland(srcIslandId, tgtIslandId, alignSrcRoomId, alignTgtRoomId){
+    const srcSid = String(srcIslandId);
+    const tgtSid = String(tgtIslandId);
+
+    const srcRoom = getRoom(alignSrcRoomId);
+    const tgtRoom = getRoom(alignTgtRoomId);
+    if (!srcRoom || !tgtRoom){ log("Merge failed: missing rooms."); return false; }
+    if (srcRoom.islandId !== srcSid || tgtRoom.islandId !== tgtSid){ log("Merge failed: room/island mismatch."); return false; }
+
+    const dx = (tgtRoom.x - srcRoom.x + GRID) % GRID;
+    const dy = (tgtRoom.y - srcRoom.y + GRID) % GRID;
+
+    const tgtIndex = ensureIsland(tgtSid).coordIndex;
+
+    const collisions = [];
+    const conflicts = [];
+
+    for (const r of rooms.values()){
+      if (r.islandId !== srcSid) continue;
+      const nx = (r.x + dx) % GRID;
+      const ny = (r.y + dy) % GRID;
+      const existingId = tgtIndex.get(keyXY(nx,ny));
+      if (existingId){
+        collisions.push({srcId:r.id, tgtId:existingId, nx, ny});
+        if (!roomsCompatibleForCollision(r.id, existingId)){
+          conflicts.push({srcId:r.id, tgtId:existingId, at:`${cellLabel(nx,ny)}`});
+        }
+      }
+    }
+
+    if (conflicts.length){
+      const head = conflicts.slice(0,6).map(c => `#${c.srcId} ↔ #${c.tgtId} @${c.at}`).join(", ");
+      log(`Island integrate blocked: ${conflicts.length} conflict(s). First: ${head}`);
+      return false;
+    }
+
+    for (const r of rooms.values()){
+      if (r.islandId !== srcSid) continue;
+      r.x = (r.x + dx) % GRID;
+      r.y = (r.y + dy) % GRID;
+      r.islandId = tgtSid;
+    }
+
+    rebuildAllCoordIndices();
+
+    for (const c of collisions){
+      mergeRooms(c.srcId, c.tgtId);
+    }
+
+    const remaining = roomsInIsland(srcSid).length;
+    if (remaining === 0){
+      islands.delete(srcSid);
+    }
+
+    activeIslandId = tgtSid;
+    ensureIsland(tgtSid).currentId = tgtRoom.id;
+    ensureIsland(tgtSid).selectedId = tgtRoom.id;
+
+    beautifyLayout(tgtRoom.id);
+    recalcWrapFlagsForIsland(tgtSid);
+    refreshAutoOverpassForIsland(tgtSid);
+
+    autosave();
+    render();
+    log(`Integrated source map into ${ensureIsland(tgtSid).name} (shift dx=${dx}, dy=${dy}).`);
+    return true;
+  }
+
+  function mergeSelectedIntoTarget(targetId){
+    const src = getRoom(selId());
+    const tgt = getRoom(targetId);
+    if (!src || !tgt){ log("Merge: missing rooms."); return; }
+    if (src.id === tgt.id){ log("Merge: pick a different target."); return; }
+
+    if (src.islandId === tgt.islandId){
+      const ok = mergeRooms(src.id, tgt.id);
+      if (ok){
+        beautifyLayout(tgt.id);
+        autosave();
+        render();
+        log(`Merged #${src.id} into #${tgt.id}.`);
+      } else {
+        log("Merge failed.");
+      }
+      return;
+    }
+
+    integrateIsland(src.islandId, tgt.islandId, src.id, tgt.id);
+  }
+
+  // -----------------------------
+  // Auto merge (ALL islands) - existing
+  // -----------------------------
+  function mergeScore(srcId, tgtId){
+    const s = getRoom(srcId);
+    const t = getRoom(tgtId);
+    if (!s || !t || s.id === t.id) return null;
+
+    if (s.markers?.orb && t.markers?.orb && s.markers.orb !== t.markers.orb) return null;
+    if (s.markers?.rune && t.markers?.rune && s.markers.rune !== t.markers.rune) return null;
+    if (s.overpass && t.overpass && s.overpass !== "none" && t.overpass !== "none" && s.overpass !== t.overpass) return null;
+
+    let score = 0;
+    let knownAgree = 0;
+    let knownBoth = 0;
+
+    for (const d of DIRS){
+      const se = s.exits[d];
+      const te = t.exits[d];
+      const ss = se.state;
+      const ts = te.state;
+
+      const sKnown = ss !== "unknown";
+      const tKnown = ts !== "unknown";
+
+      if (sKnown && tKnown){
+        knownBoth++;
+        if (ss !== ts) return null;
+
+        knownAgree++;
+        score += 8;
+
+        if (ss === "open"){
+          if (se.to && te.to && se.to !== te.to) return null;
+          if (se.to && te.to && se.to === te.to) score += 3;
+        }
+      } else if (sKnown || tKnown){
+        score += 3;
+      } else {
+        score += 0.2;
+      }
+    }
+
+    if (s.markers?.orb || t.markers?.orb) score += 2;
+    if (s.markers?.rune || t.markers?.rune) score += 2;
+    if ((s.overpass && s.overpass !== "none") || (t.overpass && t.overpass !== "none")) score += 1;
+
+    const canon = canonicalIslandId();
+    if (t.islandId === canon) score += 3;
+    if (s.islandId !== t.islandId) score += 3;
+
+    return { score, knownAgree, knownBoth };
+  }
+
+  function bestMergeForSelected(){
+    const src = getRoom(selId());
+    if (!src) return null;
+
+    let best = null;
+    for (const r of rooms.values()){
+      if (r.id === src.id) continue;
+      const ms = mergeScore(src.id, r.id);
+      if (!ms) continue;
+      if (!best || ms.score > best.score){
+        best = { id: r.id, ...ms };
+      }
+    }
+    return best;
+  }
+
+  function autoMergeSelected(){
+    const src = getRoom(selId());
+    if (!src){ log("Auto-merge: no selected room."); return; }
+
+    const best = bestMergeForSelected();
+    if (!best){
+      log("Auto-merge: no compatible target found yet.");
+      return;
+    }
+
+    const enoughEvidence =
+      (best.knownAgree >= 2 && best.score >= 20) ||
+      (best.knownAgree >= 3);
+
+    if (!enoughEvidence){
+      log(`Auto-merge: best guess is #${best.id} (score ${best.score.toFixed(1)}), but not enough evidence yet.`);
+      return;
+    }
+
+    mergeSelectedIntoTarget(best.id);
+  }
+
+  // -----------------------------
+  // Trap detector
+  // -----------------------------
+  function computeTrapCandidates(){
+    const counts = new Map();
+    const weights = { confirmed: 3, suspected: 1 };
+
+    for (const ev of teleportEvents){
+      if (!ev || !ev.trapCandidateId) continue;
+      if (!rooms.has(ev.trapCandidateId)) continue;
+      const w = weights[ev.kind] || 1;
+      counts.set(ev.trapCandidateId, (counts.get(ev.trapCandidateId) || 0) + w);
+    }
+
+    const list = [...counts.entries()]
+      .map(([id, score]) => ({ id, score, room: rooms.get(id) }))
+      .sort((a,b) => b.score - a.score);
+
+    return list;
+  }
+
+  function trapLikelihoodText(){
+    if (trapId) return "HIGH (trap set)";
+
+    let hasTeleportEdges = false;
+    for (const r of rooms.values()){
+      for (const d of DIRS){
+        if (r.exits[d].state === "teleport") { hasTeleportEdges = true; break; }
+      }
+      if (hasTeleportEdges) break;
+    }
+    if (hasTeleportEdges) return "HIGH (teleport edges)";
+    if (islands.size > 1) return "MED (multiple maps)";
+    if (teleportEvents.length) return "MED (events recorded)";
+    return "LOW";
+  }
+
+  function renderTrapDetector(){
+    if (trapLikelyPill) trapLikelyPill.textContent = trapLikelihoodText();
+
+    if (teleportDiag){
+      const c = teleportEvents.filter(e => e && e.kind === "confirmed").length;
+      const s = teleportEvents.filter(e => e && e.kind === "suspected").length;
+      teleportDiag.textContent = (c || s) ? `Teleport events: confirmed=${c}, suspected=${s}.` : "No teleport events yet.";
+    }
+
+    const cands = computeTrapCandidates();
+    if (!trapCandOut) return;
+
+    if (!cands.length){
+      trapCandOut.textContent = "No candidates yet.\nTip: If you suspect a random teleport, click the button above (or press Y).";
+      return;
+    }
+
+    const lines = [];
+    for (const c of cands.slice(0, 8)){
+      const r = c.room;
+      const where = r ? `[${ensureIsland(r.islandId).name}] ${cellLabel(r.x,r.y)}` : "";
+      const tag = (trapId === c.id) ? " (CURRENT TRAP)" : "";
+      lines.push(`#${c.id} score=${c.score} ${where}${tag}`);
+    }
+    trapCandOut.textContent = lines.join("\n");
+  }
+
+  function suspectTeleportNow(){
+    const lm = lastMove();
+    const candidate = lm?.toId || selId() || curId();
+
+    recordTeleportEvent("suspected", candidate, lm?.fromId || null, lm?.dir || null, activeIslandId);
+
+    const newIsland = createIslandAtHome();
+    setActiveIsland(newIsland);
+
+    autosave();
+    render();
+    log("Started a fresh map (suspected teleport). Merge later when evidence matches.");
+  }
+
+  function setTrapToBestCandidate(){
+    if (trapId) { log("Trap is already set. Clear it manually if you want to reassign."); return; }
+    const cands = computeTrapCandidates();
+    if (!cands.length){ log("No trap candidates yet."); return; }
+    const best = cands[0];
+    if (!best || !rooms.has(best.id)){ log("Best candidate missing."); return; }
+
+    setTrapRoom(best.id);
+    autosave();
+    render();
+    log(`Set TRAP to best candidate: #${best.id}.`);
+  }
+
+  // -----------------------------
+  // Solver (active island)
+  // -----------------------------
+  function solve(){
+    const sId = selStart.value || startId();
+    const eId = selEnd.value || endId();
+
+    setStart(sId);
+    setEnd(eId);
+
+    const s = getRoom(sId);
+    const e = getRoom(eId);
+
+    if (!s || !e || s.islandId !== activeIslandId || e.islandId !== activeIslandId){
+      pathOutEl.textContent = "Pick Start and End (current island).";
+      return;
+    }
+
+    beautifyLayout(sId);
+    autosave();
+
+    if (sId === eId){
+      setLastPath([sId]);
+      pathOutEl.textContent = "Start = End.";
+      render();
+      return;
+    }
+
+    const avoidTrap = chkAvoidTrap.checked;
+    const q = [sId];
+    const prev = new Map();
+    prev.set(sId, null);
+
+    while (q.length){
+      const id = q.shift();
+      const r = getRoom(id);
+      if (!r || r.islandId !== activeIslandId) continue;
+
+      if (avoidTrap && r.isTrap && id !== sId && id !== eId) continue;
+
+      for (const d of DIRS){
+        const ex = r.exits[d];
+        if (ex.state !== "open") continue;
+        if (!ex.to) continue;
+
+        const nid = ex.to;
+        const nr = getRoom(nid);
+        if (!nr || nr.islandId !== activeIslandId) continue;
+
+        if (!prev.has(nid)){
+          prev.set(nid, {p:id, dir:d});
+          if (nid === eId) break;
+          q.push(nid);
+        }
+      }
+      if (prev.has(eId)) break;
+    }
+
+    if (!prev.has(eId)){
+      setLastPath(null);
+      pathOutEl.textContent = "No route found (map more or merge islands).";
+      render();
+      return;
+    }
+
+    const pathIds = [eId];
+    const dirs = [];
+    let cur = eId;
+    while (cur !== sId){
+      const node = prev.get(cur);
+      if (!node) break;
+      dirs.push(node.dir);
+      cur = node.p;
+      pathIds.push(cur);
+    }
+    pathIds.reverse();
+    dirs.reverse();
+
+    setLastPath(pathIds);
+    pathOutEl.textContent = `Moves: ${dirs.join(" → ")}\nRooms: ${pathIds.join(" → ")}`;
+    render();
+  }
+
+  // -----------------------------
+  // Rendering
+  // -----------------------------
+  function render(){
+    mapPill.textContent = ensureIsland(activeIslandId).name;
+
+    const cur = getRoom(curId());
+    curPill.textContent = cur ? `#${cur.id}@${cellLabel(cur.x,cur.y)}` : "-";
+
+    countPill.textContent = String(roomsInIsland(activeIslandId).length);
+    trapPill.textContent = trapId ? `#${trapId}` : "none";
+
+    const sel = getRoom(selId());
+    selPill.textContent = sel ? `#${sel.id}` : "-";
+    coordPill.textContent = sel ? cellLabel(sel.x, sel.y) : "-";
+
+    if (sel){
+      const ov = (sel.overpass || "none");
+      overPill.textContent = (ov !== "none" && sel.overpassAuto) ? `${ov} (auto)` : ov;
+    } else {
+      overPill.textContent = "none";
+    }
+
+    renderMapSelect();
+    renderMarkerButtons();
+    renderSelects();
+    renderGrid();
+    renderOverlay();
+    renderTrapDetector();
+  }
+
+  function renderMapSelect(){
+    const items = [...islands.values()]
+      .sort((a,b) => a.id.localeCompare(b.id))
+      .map(isl => ({
+        id: isl.id,
+        label: `${isl.name} (${roomsInIsland(isl.id).length} rooms)`
+      }));
+
+    selMap.innerHTML = "";
+    for (const it of items){
+      const opt = document.createElement("option");
+      opt.value = it.id;
+      opt.textContent = it.label;
+      selMap.appendChild(opt);
+    }
+    selMap.value = activeIslandId;
+  }
+
+  function renderMarkerButtons(){
+    markerBtns.innerHTML = "";
+    for (const mk of MARKERS){
+      const b = document.createElement("button");
+      b.className = "mini";
+
+      const sel = getRoom(selId());
+      const active = sel
+        ? (mk.kind === "orb" ? sel.markers.orb === mk.color : sel.markers.rune === mk.color)
+        : false;
+      if (active) b.classList.add("primary");
+
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = COLOR_MAP[mk.color] || "#fff";
+
+      const t = document.createElement("span");
+      t.textContent = mk.label;
+
+      b.appendChild(sw);
+      b.appendChild(t);
+      b.addEventListener("click", () => toggleMarker(mk.kind, mk.color));
+      markerBtns.appendChild(b);
+    }
+  }
+
+  function renderSelects(){
+    const sid = activeIslandId;
+    const ids = roomsInIsland(sid).sort((a,b)=>a.id.localeCompare(b.id));
+
+    function fill(sel, chosen){
+      sel.innerHTML = "";
+      for (const r of ids){
+        const opt = document.createElement("option");
+        opt.value = r.id;
+        const mk = [
+          r.markers.orb ? `●${r.markers.orb[0]}` : "",
+          r.markers.rune ? `▮${r.markers.rune[0]}` : "",
+          r.isTrap ? "TRAP" : "",
+          (r.overpass && r.overpass !== "none") ? `OV:${r.overpass}${r.overpassAuto ? "*" : ""}` : "",
+        ].filter(Boolean).join(" ");
+        opt.textContent = `#${r.id} ${cellLabel(r.x,r.y)} ${mk}`;
+        sel.appendChild(opt);
+      }
+      if (chosen && rooms.has(chosen)) sel.value = chosen;
+    }
+
+    fill(selStart, startId() || curId());
+    fill(selEnd, endId() || curId());
+
+    if (!startId() && selStart.value) setStart(selStart.value);
+    if (!endId() && selEnd.value) setEnd(selEnd.value);
+
+    selMergeTarget.innerHTML = "";
+    const src = getRoom(selId());
+
+    const allRooms = [...rooms.values()].sort((a,b)=>a.id.localeCompare(b.id));
+    const scored = [];
+    const unscored = [];
+
+    for (const r of allRooms){
+      if (!src || r.id === src.id) continue;
+      const ms = mergeScore(src.id, r.id);
+      if (ms) scored.push({ r, ms });
+      else unscored.push(r);
+    }
+
+    scored.sort((a,b) => b.ms.score - a.ms.score);
+
+    const best = scored[0];
+    mergeHint.textContent = best
+      ? `Suggestion: merge into [${ensureIsland(best.r.islandId).name}] #${best.r.id} (score ${best.ms.score.toFixed(1)}, agree ${best.ms.knownAgree}/${best.ms.knownBoth}).`
+      : "No suggestion yet (not enough info).";
+
+    const mergeItems = scored.map(s => s.r).concat(unscored);
+
+    for (const r of mergeItems){
+      const opt = document.createElement("option");
+      opt.value = r.id;
+
+      const mk = [
+        r.markers.orb ? `●${r.markers.orb[0]}` : "",
+        r.markers.rune ? `▮${r.markers.rune[0]}` : "",
+        r.isTrap ? "TRAP" : "",
+        (r.overpass && r.overpass !== "none") ? `OV:${r.overpass}${r.overpassAuto ? "*" : ""}` : "",
+      ].filter(Boolean).join(" ");
+
+      let msTxt = "";
+      if (src){
+        const ms = mergeScore(src.id, r.id);
+        if (ms) msTxt = ` (match ${ms.score.toFixed(1)})`;
+      }
+
+      opt.textContent = `[${ensureIsland(r.islandId).name}] #${r.id} ${cellLabel(r.x,r.y)} ${mk}${msTxt}`;
+      selMergeTarget.appendChild(opt);
+    }
+
+    if (best && rooms.has(best.r.id)) selMergeTarget.value = best.r.id;
+  }
+
+  function renderGrid(){
+    gridEl.innerHTML = "";
+
+    for (let y=0;y<GRID;y++){
+      for (let x=0;x<GRID;x++){
+        const r = roomAt(x,y);
+        const tile = document.createElement("div");
+        tile.className = "tile";
+
+        if (!r){
+          tile.classList.add("empty");
+          gridEl.appendChild(tile);
+          continue;
+        }
+
+        applyTileFill(tile, r);
+
+        if (r.id === curId()) tile.classList.add("current");
+        if (r.id === startId()) tile.classList.add("start");
+        if (r.id === endId()) tile.classList.add("end");
+        if (r.isTrap) tile.classList.add("trap");
+
+        tile.addEventListener("click", (ev) => {
+          if (ev.shiftKey){
+            setStart(r.id);
+          } else if (ev.altKey){
+            setEnd(r.id);
+          } else {
+            setSel(r.id);
+            setCur(r.id);
+          }
+          autosave();
+          render();
+        });
+
+        const idTag = document.createElement("div");
+        idTag.className = "tagTL";
+        idTag.textContent = `#${r.id}`;
+        tile.appendChild(idTag);
+
+        const brTag = document.createElement("div");
+        brTag.className = "tagBR";
+        brTag.textContent = cellLabel(x,y);
+        tile.appendChild(brTag);
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+        svg.classList.add("tileSvg");
+        svg.setAttribute("viewBox","0 0 100 100");
+        svg.innerHTML = drawTileSVG(r);
+        tile.appendChild(svg);
+
+        for (const [dir, cls] of [["N","n"],["E","e"],["S","s"],["W","w"]]){
+          const h = document.createElement("div");
+          h.className = `edgeHit ${cls}`;
+          h.title = `Toggle ${dir} (Unknown/Open/Blocked)`;
+          h.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            setSel(r.id);
+            cycleDoor(r.id, dir);
+          });
+          tile.appendChild(h);
+        }
+
+        gridEl.appendChild(tile);
+      }
+    }
+  }
+
+  function applyTileFill(tile, r){
+    const orb = r.markers.orb ? COLOR_MAP[r.markers.orb] : null;
+    const rune = r.markers.rune ? COLOR_MAP[r.markers.rune] : null;
+
+    if (!orb && !rune){
+      tile.style.background = `linear-gradient(180deg, var(--tileBase), var(--tileBase2))`;
+      return;
+    }
+    if (orb && !rune){
+      tile.style.background = `linear-gradient(180deg, ${lighten(orb, 0.18)}, ${darken(orb, 0.12)})`;
+      return;
+    }
+    if (!orb && rune){
+      tile.style.background = `linear-gradient(180deg, ${lighten(rune, 0.18)}, ${darken(rune, 0.12)})`;
+      return;
+    }
+    tile.style.background = `linear-gradient(135deg, ${lighten(orb,0.12)} 0 50%, ${lighten(rune,0.12)} 50% 100%)`;
+  }
+
+  function hexToRgb(hex){
+    const s = hex.replace("#","");
+    const v = parseInt(s,16);
+    const r = (v>>16)&255, g=(v>>8)&255, b=v&255;
+    return {r,g,b};
+  }
+  function rgbToHex(r,g,b){
+    const n = (r<<16) | (g<<8) | b;
+    return "#" + n.toString(16).padStart(6,"0");
+  }
+  function lighten(hex, amt){
+    const {r,g,b} = hexToRgb(hex);
+    const rr = Math.round(r + (255-r)*amt);
+    const gg = Math.round(g + (255-g)*amt);
+    const bb = Math.round(b + (255-b)*amt);
+    return rgbToHex(rr,gg,bb);
+  }
+  function darken(hex, amt){
+    const {r,g,b} = hexToRgb(hex);
+    const rr = Math.round(r*(1-amt));
+    const gg = Math.round(g*(1-amt));
+    const bb = Math.round(b*(1-amt));
+    return rgbToHex(rr,gg,bb);
+  }
+
+  // Tile SVG drawing (includes ORB/RUNE icons)
+  function drawTileSVG(r){
+    const w = 12;
+    const stroke = getComputedStyle(document.documentElement).getPropertyValue("--path").trim() || "#0b0f18";
+
+    const has = (d) => (r.exits[d].state === "open" || r.exits[d].state === "teleport");
+    const tele = (d) => (r.exits[d].state === "teleport");
+    const blocked = (d) => (r.exits[d].state === "blocked");
+
+    const dirs = DIRS.filter(has);
+
+    const p = (d, dashed=false, color=stroke, width=w) => {
+      const dash = dashed ? `stroke-dasharray="6 6"` : "";
+      return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" ${dash} />`;
+    };
+
+    const C = {x:50,y:50};
+    const N = {x:50,y:10};
+    const S = {x:50,y:90};
+    const W = {x:10,y:50};
+    const E = {x:90,y:50};
+
+    const orange = "rgba(245,158,11,.95)";
+    const wall = "rgba(17,24,39,.92)";
+
+    const parts = [];
+
+    parts.push(drawMarkerIcons(r));
+
+    if (r.isTrap){
+      parts.push(`<text x="50" y="60" text-anchor="middle" font-size="22" font-family="ui-monospace, monospace" fill="rgba(17,24,39,.95)">☠</text>`);
+    }
+
+    const capW = 10;
+    if (blocked("N")) parts.push(p(`M 35 12 L 65 12`, false, wall, capW));
+    if (blocked("S")) parts.push(p(`M 35 88 L 65 88`, false, wall, capW));
+    if (blocked("W")) parts.push(p(`M 12 35 L 12 65`, false, wall, capW));
+    if (blocked("E")) parts.push(p(`M 88 35 L 88 65`, false, wall, capW));
+
+    const hasV = has("N") && has("S");
+    const hasH = has("W") && has("E");
+
+    if (hasV && hasH && r.overpass && r.overpass !== "none"){
+      if (r.overpass === "H"){
+        parts.push(p(`M ${N.x} ${N.y} L ${S.x} ${S.y}`, tele("N")||tele("S"), (tele("N")||tele("S")) ? orange : stroke));
+        parts.push(p(`M ${W.x} ${W.y} L 40 50 Q 50 30 60 50 L ${E.x} ${E.y}`, tele("W")||tele("E"), (tele("W")||tele("E")) ? orange : stroke));
+      } else {
+        parts.push(p(`M ${W.x} ${W.y} L ${E.x} ${E.y}`, tele("W")||tele("E"), (tele("W")||tele("E")) ? orange : stroke));
+        parts.push(p(`M ${N.x} ${N.y} L 50 40 Q 72 50 50 60 L ${S.x} ${S.y}`, tele("N")||tele("S"), (tele("N")||tele("S")) ? orange : stroke));
+      }
+      return parts.join("");
+    }
+
+    if (dirs.length === 0){
+      return parts.join("");
+    }
+
+    if (dirs.length === 1){
+      const d = dirs[0];
+      const end = ({N,S,E,W}[d]);
+      const dashed = tele(d);
+      const col = dashed ? orange : stroke;
+      parts.push(p(`M ${C.x} ${C.y} L ${end.x} ${end.y}`, dashed, col));
+      return parts.join("");
+    }
+
+    if (dirs.length === 2){
+      const [a,b] = dirs;
+      const dashed = tele(a)||tele(b);
+      const col = dashed ? orange : stroke;
+
+      if ((a==="N" && b==="S") || (a==="S" && b==="N")){
+        parts.push(p(`M ${N.x} ${N.y} L ${S.x} ${S.y}`, dashed, col));
+        return parts.join("");
+      }
+      if ((a==="W" && b==="E") || (a==="E" && b==="W")){
+        parts.push(p(`M ${W.x} ${W.y} L ${E.x} ${E.y}`, dashed, col));
+        return parts.join("");
+      }
+
+      const A = ({N,S,E,W}[a]);
+      const B = ({N,S,E,W}[b]);
+      const corner = { x:(A.x+B.x)/2, y:(A.y+B.y)/2 };
+
+      parts.push(p(`M ${A.x} ${A.y} Q ${corner.x} ${corner.y} ${B.x} ${B.y}`, dashed, col));
+      return parts.join("");
+    }
+
+    for (const d of dirs){
+      const end = ({N,S,E,W}[d]);
+      const dashed = tele(d);
+      const col = dashed ? orange : stroke;
+      parts.push(p(`M ${C.x} ${C.y} L ${end.x} ${end.y}`, dashed, col));
+    }
+
+    parts.push(`<circle cx="50" cy="50" r="4.5" fill="rgba(255,255,255,.20)"></circle>`);
+    parts.push(`<circle cx="50" cy="50" r="2.8" fill="rgba(17,24,39,.90)"></circle>`);
+
+    return parts.join("");
+  }
+
+  function drawMarkerIcons(r){
+    const ink = "rgba(17,24,39,.95)";
+    const thin = 2.3;
+    const out = [];
+
+    if (r.markers.orb){
+      out.push(`
+        <g>
+          <circle cx="36" cy="34" r="13" fill="none" stroke="${ink}" stroke-width="${thin}" />
+          <circle cx="36" cy="34" r="7"  fill="none" stroke="${ink}" stroke-width="${thin}" />
+          <circle cx="36" cy="34" r="2.2" fill="${ink}" />
+        </g>
+      `);
+    }
+
+    if (r.markers.rune){
+      out.push(`
+        <g>
+          <path d="M 60 47 L 72 26 L 84 47 Z" fill="none" stroke="${ink}" stroke-width="${thin}" stroke-linejoin="round"/>
+          <circle cx="72" cy="34" r="2.2" fill="${ink}"/>
+          <path d="M 72 47 L 72 70" fill="none" stroke="${ink}" stroke-width="${thin}" stroke-linecap="round"/>
+        </g>
+      `);
+    }
+
+    return out.join("");
+  }
+
+  // -----------------------------
+  // Overlay (WRAP-CORRECT)
+  // -----------------------------
+  function getMetrics(){
+    const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gap")) || 8;
+    const rect = gridEl.getBoundingClientRect();
+    const tile = (rect.width - (GRID-1)*gap) / GRID;
+    return {gap, tile, width: rect.width, height: rect.height};
+  }
+
+  function centerOf(x,y,m){
+    const cx = x*(m.tile+m.gap) + m.tile/2;
+    const cy = y*(m.tile+m.gap) + m.tile/2;
+    return {cx,cy};
+  }
+
+  function dirFromTo(a, b){
+    if (!a || !b) return null;
+    for (const d of DIRS){
+      const ex = a.exits?.[d];
+      if (ex && ex.state === "open" && ex.to === b.id) return d;
+    }
+    return null;
+  }
+
+  function edgePoint(x, y, side, m){
+    const x0 = x * (m.tile + m.gap);
+    const y0 = y * (m.tile + m.gap);
+    const cx = x0 + m.tile / 2;
+    const cy = y0 + m.tile / 2;
+
+    const inset = 2;
+
+    if (side === "N") return { x: cx, y: y0 + inset };
+    if (side === "S") return { x: cx, y: y0 + m.tile - inset };
+    if (side === "W") return { x: x0 + inset, y: cy };
+    if (side === "E") return { x: x0 + m.tile - inset, y: cy };
+    return { x: cx, y: cy };
+  }
+
+  function renderOverlay(){
+    const m = getMetrics();
+    overlaySvg.setAttribute("viewBox", `0 0 ${m.width} ${m.height}`);
+    overlaySvg.innerHTML = "";
+
+    const pth = lastPath();
+    if (!pth || pth.length < 2) return;
+
+    const drawLine = (x1,y1,x2,y2) => {
+      const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      line.setAttribute("stroke", "rgba(96,165,250,.95)");
+      line.setAttribute("stroke-width", "5");
+      line.setAttribute("stroke-linecap", "round");
+      overlaySvg.appendChild(line);
+    };
+
+    for (let i=0;i<pth.length-1;i++){
+      const a = getRoom(pth[i]);
+      const b = getRoom(pth[i+1]);
+      if (!a || !b) continue;
+      if (a.islandId !== activeIslandId || b.islandId !== activeIslandId) continue;
+
+      const p1 = centerOf(a.x,a.y,m);
+      const p2 = centerOf(b.x,b.y,m);
+
+      const d = dirFromTo(a, b);
+      let isWrap = false;
+      if (d){
+        const info = stepCoord(a.x, a.y, d);
+        isWrap = !!info.wrapped;
+      } else {
+        const dx = Math.abs(a.x - b.x);
+        const dy = Math.abs(a.y - b.y);
+        isWrap = (dx > 1 || dy > 1);
+      }
+
+      if (isWrap && d){
+        const exit = edgePoint(a.x, a.y, d, m);
+        const entry = edgePoint(b.x, b.y, OPP[d], m);
+
+        drawLine(p1.cx, p1.cy, exit.x, exit.y);
+        drawLine(entry.x, entry.y, p2.cx, p2.cy);
+
+        const mx = (entry.x + p2.cx) / 2;
+        const my = (entry.y + p2.cy) / 2;
+        drawArrow(overlaySvg, mx, my, p2.cx, p2.cy);
+      } else {
+        drawLine(p1.cx, p1.cy, p2.cx, p2.cy);
+
+        const mx = (p1.cx+p2.cx)/2;
+        const my = (p1.cy+p2.cy)/2;
+        drawArrow(overlaySvg, mx, my, p2.cx, p2.cy);
+      }
+    }
+  }
+
+  function drawArrow(svg, x1,y1,x2,y2){
+    const angle = Math.atan2(y2-y1, x2-x1);
+    const len = 12;
+    const base = 7;
+
+    const tip = {x:x1 + Math.cos(angle)*len, y:y1 + Math.sin(angle)*len};
+    const left = {x:x1 + Math.cos(angle+2.6)*base, y:y1 + Math.sin(angle+2.6)*base};
+    const right= {x:x1 + Math.cos(angle-2.6)*base, y:y1 + Math.sin(angle-2.6)*base};
+
+    const poly = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+    poly.setAttribute("points", `${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}`);
+    poly.setAttribute("fill", "rgba(96,165,250,.95)");
+    svg.appendChild(poly);
+  }
+
+  // -----------------------------
+  // NEW: Rebuild coords from links + repair inconsistent links
+  // -----------------------------
+  function rebuildCoordsForIsland(islandId, {repair=true} = {}){
+    const sid = String(islandId);
+    const isl = ensureIsland(sid);
+    const list = roomsInIsland(sid);
+    if (!list.length) return {sid, assigned:0, conflicts:0, repaired:0, collisions:0};
+
+    const anchorId = isl.startId || isl.currentId || list[0].id;
+
+    const assigned = new Map();
+    assigned.set(anchorId, {x: HOME.x, y: HOME.y});
+    const q = [anchorId];
+
+    let conflicts = 0;
+
+    while (q.length){
+      const id = q.shift();
+      const r = getRoom(id);
+      if (!r || r.islandId !== sid) continue;
+
+      const pos = assigned.get(id);
+      if (!pos) continue;
+
+      for (const d of DIRS){
+        const ex = r.exits[d];
+        if (!ex || ex.state !== "open" || !ex.to) continue;
+        const nid = ex.to;
+        const nr = getRoom(nid);
+        if (!nr || nr.islandId !== sid) continue;
+
+        const info = stepCoord(pos.x, pos.y, d);
+        const cand = {x: info.nx, y: info.ny};
+
+        if (!assigned.has(nid)){
+          assigned.set(nid, cand);
+          q.push(nid);
+        } else {
+          const prev = assigned.get(nid);
+          if (prev.x !== cand.x || prev.y !== cand.y){
+            conflicts++;
+          }
+        }
+      }
+    }
+
+    // Apply assigned coords
+    for (const [id, pos] of assigned.entries()){
+      const r = getRoom(id);
+      if (!r) continue;
+      r.x = pos.x;
+      r.y = pos.y;
+    }
+
+    // Put unassigned rooms into free spots (keeps them visible, but they’re likely disconnected noise)
+    const used = new Set();
+    for (const r of rooms.values()){
+      if (r.islandId !== sid) continue;
+      used.add(keyXY(r.x,r.y));
+    }
+    for (const r of list){
+      if (assigned.has(r.id)) continue;
+      // find first free tile
+      let placed = false;
+      for (let y=0;y<GRID && !placed;y++){
+        for (let x=0;x<GRID && !placed;x++){
+          const k = keyXY(x,y);
+          if (!used.has(k)){
+            r.x = x; r.y = y;
+            used.add(k);
+            placed = true;
+          }
+        }
+      }
+    }
+
+    rebuildAllCoordIndices();
+
+    // Repair inconsistent links: if an open link doesn't match stepCoord geometry, sever it.
+    let repaired = 0;
+    if (repair){
+      for (const r of rooms.values()){
+        if (r.islandId !== sid) continue;
+        for (const d of DIRS){
+          const ex = r.exits[d];
+          if (!ex || ex.state !== "open" || !ex.to) continue;
+          const dest = getRoom(ex.to);
+          if (!dest || dest.islandId !== sid) continue;
+
+          const info = stepCoord(r.x, r.y, d);
+          if (dest.x !== info.nx || dest.y !== info.ny){
+            // sever both sides unless teleport
+            const back = dest.exits[OPP[d]];
+            if (back && back.state !== "teleport" && back.to === r.id){
+              back.state = "unknown"; back.to = null; back.wrap = false;
+            }
+            if (ex.state !== "teleport"){
+              ex.state = "unknown"; ex.to = null; ex.wrap = false;
+            }
+            repaired++;
+          } else {
+            ex.wrap = !!info.wrapped;
+          }
+        }
+      }
+    }
+
+    rebuildAllCoordIndices();
+    recalcWrapFlagsForIsland(sid);
+    refreshAutoOverpassForIsland(sid);
+
+    // Resolve coordinate collisions (rare, but can happen if JSON is cooked)
+    let collisions = 0;
+    const byCoord = new Map();
+    for (const r of rooms.values()){
+      if (r.islandId !== sid) continue;
+      const k = keyXY(r.x,r.y);
+      if (!byCoord.has(k)) byCoord.set(k, []);
+      byCoord.get(k).push(r.id);
+    }
+    for (const [k, ids] of byCoord.entries()){
+      if (ids.length <= 1) continue;
+      collisions += (ids.length - 1);
+
+      // attempt to merge all into the first one if compatible, else relocate extras
+      const target = ids[0];
+      for (let i=1;i<ids.length;i++){
+        const rid = ids[i];
+        if (roomsCompatibleForCollision(rid, target)){
+          mergeRooms(rid, target);
+        } else {
+          const rr = getRoom(rid);
+          if (!rr) continue;
+          // relocate to a free spot
+          const used2 = new Set();
+          for (const r2 of rooms.values()){
+            if (r2.islandId !== sid) continue;
+            used2.add(keyXY(r2.x,r2.y));
+          }
+          let placed = false;
+          for (let yy=0;yy<GRID && !placed;yy++){
+            for (let xx=0;xx<GRID && !placed;xx++){
+              const kk = keyXY(xx,yy);
+              if (!used2.has(kk)){
+                rr.x=xx; rr.y=yy;
+                placed = true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    rebuildAllCoordIndices();
+    recalcWrapFlagsForIsland(sid);
+    refreshAutoOverpassForIsland(sid);
+
+    return {sid, assigned: assigned.size, conflicts, repaired, collisions};
+  }
+
+  function rebuildCoordsAllIslands({repair=true} = {}){
+    const out = [];
+    for (const isl of [...islands.values()].sort((a,b)=>a.id.localeCompare(b.id))){
+      out.push(rebuildCoordsForIsland(isl.id, {repair}));
+    }
+    return out;
+  }
+
+  // -----------------------------
+  // NEW: Auto-combine islands into canonical
+  // (best-guess: tries to integrate each island into canonical using best alignment pair)
+  // -----------------------------
+  function quickRoomAffinity(a, b){
+    if (!a || !b) return -Infinity;
+
+    // markers must not conflict
+    if (a.markers?.orb && b.markers?.orb && a.markers.orb !== b.markers.orb) return -Infinity;
+    if (a.markers?.rune && b.markers?.rune && a.markers.rune !== b.markers.rune) return -Infinity;
+
+    if (a.overpass && b.overpass && a.overpass !== "none" && b.overpass !== "none" && a.overpass !== b.overpass) return -Infinity;
+
+    let score = 0;
+
+    // reward any marker presence
+    if (a.markers?.orb || b.markers?.orb) score += 4;
+    if (a.markers?.rune || b.markers?.rune) score += 4;
+
+    // edge pattern agreement (lightweight)
+    for (const d of DIRS){
+      const as = a.exits[d]?.state || "unknown";
+      const bs = b.exits[d]?.state || "unknown";
+      const aKnown = as !== "unknown";
+      const bKnown = bs !== "unknown";
+      if (aKnown && bKnown){
+        if (as !== bs) return -Infinity;
+        score += 3;
+        if (as === "open") score += 1;
+      } else if (aKnown || bKnown){
+        score += 1;
+      }
+    }
+
+    return score;
+  }
+
+  function simulateIntegrationScore(srcSid, tgtSid, alignSrcId, alignTgtId){
+    const srcRoom = getRoom(alignSrcId);
+    const tgtRoom = getRoom(alignTgtId);
+    if (!srcRoom || !tgtRoom) return null;
+    if (srcRoom.islandId !== srcSid || tgtRoom.islandId !== tgtSid) return null;
+
+    const dx = (tgtRoom.x - srcRoom.x + GRID) % GRID;
+    const dy = (tgtRoom.y - srcRoom.y + GRID) % GRID;
+
+    const tgtIndex = ensureIsland(tgtSid).coordIndex;
+
+    let collisions = 0;
+    let conflicts = 0;
+    let collisionAgree = 0;
+
+    for (const r of rooms.values()){
+      if (r.islandId !== srcSid) continue;
+      const nx = (r.x + dx) % GRID;
+      const ny = (r.y + dy) % GRID;
+      const existingId = tgtIndex.get(keyXY(nx,ny));
+      if (!existingId) continue;
+      collisions++;
+      if (!roomsCompatibleForCollision(r.id, existingId)){
+        conflicts++;
+        continue;
+      }
+      collisionAgree++;
+    }
+
+    if (conflicts > 0) return null;
+
+    const baseAffinity = quickRoomAffinity(srcRoom, tgtRoom);
+    if (!Number.isFinite(baseAffinity)) return null;
+
+    // Strongly favor lots of collision agreement; it means the island snaps into place
+    const score =
+      baseAffinity * 10 +
+      collisionAgree * 120 +
+      collisions * 40;
+
+    return { score, dx, dy, collisions, collisionAgree, alignSrcId, alignTgtId };
+  }
+
+  function bestIntegrationPlan(srcSid, tgtSid){
+    const srcRooms = roomsInIsland(srcSid);
+    const tgtRooms = roomsInIsland(tgtSid);
+    if (!srcRooms.length || !tgtRooms.length) return null;
+
+    // Reduce search: prefer candidate rooms with markers or >=2 known edges
+    const interesting = (r) => {
+      const known = DIRS.reduce((n,d)=> n + ((r.exits[d].state !== "unknown") ? 1 : 0), 0);
+      return (r.markers?.orb || r.markers?.rune || r.isTrap || known >= 2);
+    };
+
+    const srcList = srcRooms.filter(interesting);
+    const tgtList = tgtRooms.filter(interesting);
+
+    const srcUse = srcList.length ? srcList : srcRooms;
+    const tgtUse = tgtList.length ? tgtList : tgtRooms;
+
+    let best = null;
+
+    for (const s of srcUse){
+      for (const t of tgtUse){
+        const aff = quickRoomAffinity(s, t);
+        if (!Number.isFinite(aff) || aff < 3) continue;
+
+        const sim = simulateIntegrationScore(srcSid, tgtSid, s.id, t.id);
+        if (!sim) continue;
+
+        if (!best || sim.score > best.score){
+          best = sim;
+        }
+      }
+    }
+
+    // If nothing “interesting” matched, try a tiny fallback brute-force (still bounded)
+    if (!best){
+      const maxPairs = 700; // safe bound
+      let tried = 0;
+      for (const s of srcRooms){
+        for (const t of tgtRooms){
+          tried++;
+          if (tried > maxPairs) break;
+          const sim = simulateIntegrationScore(srcSid, tgtSid, s.id, t.id);
+          if (!sim) continue;
+          if (!best || sim.score > best.score) best = sim;
+        }
+        if (tried > maxPairs) break;
+      }
+    }
+
+    return best;
+  }
+
+  function autoCombineAllIslands(){
+    const steps = [];
+    let mergedAny = false;
+
+    // keep trying until no more merges possible
+    for (let iter=0; iter<20; iter++){
+      if (islands.size <= 1) break;
+
+      const canon = canonicalIslandId();
+      const otherIds = [...islands.keys()].filter(id => id !== canon);
+      if (!otherIds.length) break;
+
+      let bestOverall = null;
+
+      for (const sid of otherIds){
+        const plan = bestIntegrationPlan(String(sid), String(canon));
+        if (!plan) continue;
+        // require some real overlap or strong score
+        const ok =
+          (plan.collisionAgree >= 2) ||
+          (plan.collisionAgree >= 1 && plan.score >= 250) ||
+          (plan.score >= 320);
+
+        if (!ok) continue;
+
+        if (!bestOverall || plan.score > bestOverall.score){
+          bestOverall = { ...plan, srcSid: String(sid), tgtSid: String(canon) };
+        }
+      }
+
+      if (!bestOverall) break;
+
+      const srcName = ensureIsland(bestOverall.srcSid).name;
+      const tgtName = ensureIsland(bestOverall.tgtSid).name;
+
+      const ok = integrateIsland(bestOverall.srcSid, bestOverall.tgtSid, bestOverall.alignSrcId, bestOverall.alignTgtId);
+      if (!ok) break;
+
+      mergedAny = true;
+      steps.push(`Merged ${srcName} → ${tgtName} (align #${bestOverall.alignSrcId}→#${bestOverall.alignTgtId}, score ${bestOverall.score.toFixed(1)}, overlap ${bestOverall.collisionAgree}/${bestOverall.collisions})`);
+    }
+
+    return { mergedAny, steps };
+  }
+
+  // -----------------------------
+  // NEW: One-click analysis: normalize + rebuild + combine + solve + show map
+  // -----------------------------
+  function aLog(msg, append=true){
+    if (!analysisOutEl) return;
+    if (!append) analysisOutEl.textContent = msg;
+    else analysisOutEl.textContent = (analysisOutEl.textContent ? (analysisOutEl.textContent + "\n" + msg) : msg);
+  }
+
+  function analyzeCombineSolve(){
+    aLog("Running analysis…", false);
+
+    const soften = !!chkSoftBlocked?.checked;
+    const repair = !!chkRepairLinks?.checked;
+
+    let softened = 0;
+    if (soften){
+      softened = normalizeSoftBlockedAll();
+      aLog(`Soft-blocked normalization: changed ${softened} blocked→unknown edges.`, true);
+    } else {
+      aLog("Soft-blocked normalization: OFF.", true);
+    }
+
+    const rebuild = rebuildCoordsAllIslands({repair});
+    const rSummary = rebuild.map(r => `[${ensureIsland(r.sid).name}] assigned=${r.assigned} conflicts=${r.conflicts} repaired=${r.repaired} collisions=${r.collisions}`).join("\n");
+    aLog(`Rebuild coords from links (${repair ? "repair ON" : "repair OFF"}):\n${rSummary}`, true);
+
+    // After rebuild, refresh overpass/wrap everywhere
+    for (const isl of islands.values()){
+      recalcWrapFlagsForIsland(isl.id);
+      refreshAutoOverpassForIsland(isl.id);
+    }
+
+    // Combine
+    const comb = autoCombineAllIslands();
+    if (!comb.mergedAny){
+      aLog("Combine: no safe merges found (need more markers/edges, or conflicts remain).", true);
+    } else {
+      aLog("Combine steps:\n" + comb.steps.map(s => "• " + s).join("\n"), true);
+    }
+
+    // Go to canonical island and solve something useful:
+    const canon = canonicalIslandId();
+    setActiveIsland(canon);
+
+    const canonIsl = ensureIsland(canon);
+    const start = canonIsl.startId || canonIsl.currentId || roomsInIsland(canon)[0]?.id || null;
+
+    // prefer solving to TRAP if it exists in canonical
+    let end = canonIsl.endId || start;
+    if (trapId && rooms.has(trapId) && rooms.get(trapId).islandId === canon){
+      end = trapId;
+    }
+
+    if (start && end){
+      canonIsl.startId = start;
+      canonIsl.endId = end;
+      selStart.value = start;
+      selEnd.value = end;
+      solve();
+      aLog(`Solve: ${start} → ${end} (island ${ensureIsland(canon).name}).`, true);
+    } else {
+      aLog("Solve: could not pick start/end (missing rooms).", true);
+    }
+
+    autosave();
+    render();
+  }
+
+  // -----------------------------
+  // Logging / Autosave / Import/Export
+  // -----------------------------
+  function log(msg){ logEl.textContent = msg; }
+
+  function snapshot(){
+    const islandMeta = [...islands.values()].map(i => ({
+      id: i.id,
+      name: i.name,
+      currentId: i.currentId,
+      selectedId: i.selectedId,
+      startId: i.startId,
+      endId: i.endId,
+      history: i.history,
+      lastMove: i.lastMove,
+      lastSolvedPath: i.lastSolvedPath,
+    }));
+
+    return {
+      version: 56,
+      nextRoomId,
+      nextIslandId,
+      activeIslandId,
+      trapId,
+      teleportEvents,
+      rooms: [...rooms.values()],
+      islands: islandMeta,
+    };
+  }
+
+  function autosave(){
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); }catch(_){}
+  }
+
+  function loadAutosave(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return false;
+
+      const data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.rooms)) return false;
+
+      rooms.clear();
+      islands.clear();
+
+      if (Array.isArray(data.islands) && data.islands.length){
+        for (const im of data.islands){
+          const isl = ensureIsland(im.id);
+          isl.name = im.name || `Map ${im.id}`;
+          isl.currentId = im.currentId || null;
+          isl.selectedId = im.selectedId || null;
+          isl.startId = im.startId || null;
+          isl.endId = im.endId || null;
+          isl.history = Array.isArray(im.history) ? im.history : [];
+          isl.lastMove = im.lastMove || null;
+          isl.lastSolvedPath = Array.isArray(im.lastSolvedPath) ? im.lastSolvedPath : null;
+        }
+      } else {
+        ensureIsland("1");
+      }
+
+      activeIslandId = String(data.activeIslandId || "1");
+      nextRoomId = data.nextRoomId || 1;
+
+      for (const r of data.rooms){
+        if (!r.islandId) r.islandId = "1";
+        if (!r.overpass) r.overpass = "none";
+        if (typeof r.overpassAuto !== "boolean") r.overpassAuto = false;
+        if (!r.markers) r.markers = {orb:null,rune:null};
+        if (typeof r.isTrap !== "boolean") r.isTrap = false;
+        rooms.set(r.id, r);
+      }
+
+      trapId = data.trapId || null;
+      teleportEvents = Array.isArray(data.teleportEvents) ? data.teleportEvents : [];
+
+      rebuildAllCoordIndices();
+
+      for (const rr of rooms.values()) rr.isTrap = false;
+      if (trapId && rooms.has(trapId)) rooms.get(trapId).isTrap = true;
+      else trapId = null;
+
+      const floor = computeNextIslandIdFloor();
+      nextIslandId = Math.max(floor, Number(data.nextIslandId || 0) || 0);
+
+      if (!islands.has(activeIslandId)) activeIslandId = "1";
+      setActiveIsland(activeIslandId);
+
+      beautifyLayout(isl().startId || isl().currentId);
+      recalcWrapFlagsForIsland(activeIslandId);
+      refreshAutoOverpassForIsland(activeIslandId);
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  function exportJSON(){
+    jsonBox.value = JSON.stringify(snapshot(), null, 2);
+    log("Exported JSON.");
+  }
+
+  function importJSON(){
+    try{
+      const data = JSON.parse(jsonBox.value);
+      if (!data || !Array.isArray(data.rooms)) throw new Error("Invalid JSON (missing rooms)");
+
+      rooms.clear();
+      islands.clear();
+
+      nextRoomId = data.nextRoomId || 1;
+      activeIslandId = String(data.activeIslandId || "1");
+      trapId = data.trapId || null;
+      teleportEvents = Array.isArray(data.teleportEvents) ? data.teleportEvents : [];
+
+      if (Array.isArray(data.islands) && data.islands.length){
+        for (const im of data.islands){
+          const isl = ensureIsland(im.id);
+          isl.name = im.name || `Map ${im.id}`;
+          isl.currentId = im.currentId || null;
+          isl.selectedId = im.selectedId || null;
+          isl.startId = im.startId || null;
+          isl.endId = im.endId || null;
+          isl.history = Array.isArray(im.history) ? im.history : [];
+          isl.lastMove = im.lastMove || null;
+          isl.lastSolvedPath = Array.isArray(im.lastSolvedPath) ? im.lastSolvedPath : null;
+        }
+      } else {
+        ensureIsland("1");
+        activeIslandId = "1";
+      }
+
+      for (const r of data.rooms){
+        if (!r.islandId) r.islandId = "1";
+        if (!r.overpass) r.overpass = "none";
+        if (typeof r.overpassAuto !== "boolean") r.overpassAuto = false;
+        if (!r.markers) r.markers = {orb:null,rune:null};
+        if (typeof r.isTrap !== "boolean") r.isTrap = false;
+        rooms.set(r.id, r);
+      }
+
+      rebuildAllCoordIndices();
+
+      for (const rr of rooms.values()) rr.isTrap = false;
+      if (trapId && rooms.has(trapId)) rooms.get(trapId).isTrap = true;
+      else trapId = null;
+
+      const floor = computeNextIslandIdFloor();
+      nextIslandId = Math.max(floor, Number(data.nextIslandId || 0) || 0);
+
+      if (!islands.has(activeIslandId)) activeIslandId = "1";
+      setActiveIsland(activeIslandId);
+
+      // Light cleanup on import
+      recalcWrapFlagsForIsland(activeIslandId);
+      refreshAutoOverpassForIsland(activeIslandId);
+
+      autosave();
+      render();
+      log("Imported JSON.");
+    }catch(err){
+      log(`Import failed: ${err.message}`);
+    }
+  }
+
+  function clearAutosave(){
+    localStorage.removeItem(LS_KEY);
+    log("Autosave cleared.");
+  }
+
+  function resetAll(){
+    rooms.clear();
+    islands.clear();
+    nextRoomId = 1;
+    nextIslandId = 2;
+    activeIslandId = "1";
+    trapId = null;
+    teleportEvents = [];
+
+    ensureIsland("1");
+
+    const start = makeRoom(HOME.x, HOME.y, "1");
+    const i = ensureIsland("1");
+    i.name = "Map 1";
+    i.currentId = start.id;
+    i.selectedId = start.id;
+    i.startId = start.id;
+    i.endId = start.id;
+    i.history = [];
+    i.lastMove = null;
+    i.lastSolvedPath = null;
+
+    rebuildAllCoordIndices();
+    recalcWrapFlagsForIsland("1");
+    refreshAutoOverpassForIsland("1");
+
+    autosave();
+    render();
+    log("Reset complete (start at 4C on Map 1).");
+  }
+
+  // -----------------------------
+  // Wiring
+  // -----------------------------
+  document.getElementById("btnN").onclick = () => move("N");
+  document.getElementById("btnE").onclick = () => move("E");
+  document.getElementById("btnS").onclick = () => move("S");
+  document.getElementById("btnW").onclick = () => move("W");
+  document.getElementById("btnUndo").onclick = undo;
+  document.getElementById("btnTeleport").onclick = markLastTeleport;
+  document.getElementById("btnOverpassLast").onclick = toggleLastOverpass;
+  document.getElementById("btnShuffle").onclick = () => shuffleNow(startId() || curId());
+  document.getElementById("btnSolve").onclick = solve;
+  document.getElementById("btnReset").onclick = resetAll;
+
+  document.getElementById("btnClearMarkers").onclick = clearMarkers;
+  document.getElementById("btnTrapToggle").onclick = toggleTrapSelected;
+
+  document.getElementById("btnOverpassSel").onclick = () => {
+    const r = getRoom(selId());
+    if (!r){ log("Select a tile first."); return; }
+    cycleOverpass(r.id);
+    log(`Overpass for #${r.id}: ${(getRoom(r.id)?.overpass || "none")}`);
+  };
+
+  document.getElementById("btnMerge").onclick = () => mergeSelectedIntoTarget(selMergeTarget.value);
+  document.getElementById("btnAutoMerge").onclick = autoMergeSelected;
+
+  document.getElementById("btnExport").onclick = exportJSON;
+  document.getElementById("btnImport").onclick = importJSON;
+  document.getElementById("btnClearSave").onclick = clearAutosave;
+
+  selStart.onchange = () => { setStart(selStart.value); autosave(); render(); };
+  selEnd.onchange = () => { setEnd(selEnd.value); autosave(); render(); };
+
+  document.getElementById("btnGoMap").onclick = () => setActiveIsland(selMap.value);
+
+  if (btnSuspectTeleport) btnSuspectTeleport.onclick = suspectTeleportNow;
+  if (btnSetTrapBest) btnSetTrapBest.onclick = setTrapToBestCandidate;
+
+  // New buttons
+  document.getElementById("btnAutoAnalyze").onclick = analyzeCombineSolve;
+  document.getElementById("btnRebuildOnly").onclick = () => {
+    aLog("Rebuilding coords only…", false);
+    const repair = !!chkRepairLinks?.checked;
+    const rebuild = rebuildCoordsAllIslands({repair});
+    const rSummary = rebuild.map(r => `[${ensureIsland(r.sid).name}] assigned=${r.assigned} conflicts=${r.conflicts} repaired=${r.repaired} collisions=${r.collisions}`).join("\n");
+    aLog(`Rebuild coords from links (${repair ? "repair ON" : "repair OFF"}):\n${rSummary}`, true);
+    autosave();
+    render();
+  };
+
+  window.addEventListener("keydown", (ev) => {
+    const tag = (ev.target && ev.target.tagName) ? ev.target.tagName.toLowerCase() : "";
+    if (tag === "textarea" || tag === "select" || tag === "input") return;
+
+    if (ev.key === "ArrowUp"){ ev.preventDefault(); move("N"); }
+    if (ev.key === "ArrowRight"){ ev.preventDefault(); move("E"); }
+    if (ev.key === "ArrowDown"){ ev.preventDefault(); move("S"); }
+    if (ev.key === "ArrowLeft"){ ev.preventDefault(); move("W"); }
+    if (ev.key.toLowerCase() === "u"){ undo(); }
+    if (ev.key.toLowerCase() === "t"){ markLastTeleport(); }
+    if (ev.key.toLowerCase() === "o"){ toggleLastOverpass(); }
+    if (ev.key.toLowerCase() === "p"){ shuffleNow(startId() || curId()); }
+    if (ev.key.toLowerCase() === "y"){ suspectTeleportNow(); }
+  });
+
+  window.addEventListener("resize", () => renderOverlay());
+
+  // -----------------------------
+  // Init
+  // -----------------------------
+  buildFrameLabels();
+  if (!loadAutosave()){
+    resetAll();
+  } else {
+    for (const isl of islands.values()){
+      refreshAutoOverpassForIsland(isl.id);
+    }
+    autosave();
+    render();
+    log("Loaded autosave (v5.6).");
+  }
+
+})();
+</script>
+</body>
+</html>
